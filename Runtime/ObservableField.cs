@@ -45,27 +45,29 @@ namespace GameLovers
 	/// <inheritdoc />
 	public class ObservableField<T> : IObservableField<T>
 	{
-		private readonly Func<T> _fieldResolver;
-		private readonly Action<T> _fieldSetter;
 		private readonly IList<Action<T>> _updateActions = new List<Action<T>>();
+
+		private T _value;
 
 		/// <inheritdoc cref="IObservableField{T}.Value" />
 		public T Value
 		{
-			get => _fieldResolver();
+			get => _value;
 			set
 			{
-				_fieldSetter(value);
+				_value = value;
 				InvokeUpdates(value);
 			}
 		}
 
-		private ObservableField() {}
- 
-		public ObservableField(Func<T> fieldResolver, Action<T> fieldSetter)
+		public ObservableField()
 		{
-			_fieldResolver = fieldResolver;
-			_fieldSetter = fieldSetter;
+			_value = default;
+		}
+ 
+		public ObservableField(T initialValue)
+		{
+			_value = initialValue;
 		}
 		
 		public static implicit operator T(ObservableField<T> value) => value.Value;
@@ -90,12 +92,40 @@ namespace GameLovers
 			_updateActions.Remove(onUpdate);
 		}
 
-		private void InvokeUpdates(T value)
+		protected void InvokeUpdates(T value)
 		{
 			for (var i = 0; i < _updateActions.Count; i++)
 			{
 				_updateActions[i].Invoke(value);
 			}
 		}
+	}
+	
+	/// <inheritdoc />
+	public class ObservableResolverField<T> : ObservableField<T>
+	{
+		private readonly Func<T> _fieldResolver;
+		private readonly Action<T> _fieldSetter;
+
+		/// <inheritdoc cref="IObservableField{T}.Value" />
+		public new T Value
+		{
+			get => _fieldResolver();
+			set
+			{
+				_fieldSetter(value);
+				InvokeUpdates(value);
+			}
+		}
+
+		private ObservableResolverField() {}
+ 
+		public ObservableResolverField(Func<T> fieldResolver, Action<T> fieldSetter)
+		{
+			_fieldResolver = fieldResolver;
+			_fieldSetter = fieldSetter;
+		}
+		
+		public static implicit operator T(ObservableResolverField<T> value) => value.Value;
 	}
 }
