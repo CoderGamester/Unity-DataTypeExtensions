@@ -1,17 +1,17 @@
 using System;
+using UnityEngine;
 
 // ReSharper disable once CheckNamespace
 
-// TODO: Remove this after Unity 2020.1 release. Unity will allow Generic Type Serialization....FINALLY \o/
 namespace GameLovers
 {
 	[Serializable]
-	public struct IntPairData
+	public struct Pair<TKey, TValue>
 	{
-		public int Key;
-		public int Value;
+		public TKey Key;
+		public TValue Value;
 
-		public IntPairData(int key, int value)
+		public Pair(TKey key, TValue value)
 		{
 			Key = key;
 			Value = value;
@@ -24,110 +24,152 @@ namespace GameLovers
 	}
 	
 	[Serializable]
-	public struct IntStringData
+	public struct Vector4Int
 	{
-		public int Key;
-		public string Value;
+		public int x;
+		public int y;
+		public int z;
+		public int w;
 
-		public IntStringData(int key, string value)
+		public Vector4Int(int x, int y, int z, int w)
 		{
-			Key = key;
-			Value = value;
-		}
-		
-		public override string ToString()
-		{
-			return $"[{Key.ToString()},{Value}]";
+			this.x = x;
+			this.y = y;
+			this.z = z;
+			this.w = w;
 		}
 	}
 	
 	[Serializable]
-	public struct FloatPairData
+	public struct Vector4Serializable
 	{
-		public float Key;
-		public float Value;
+		public float x;
+		public float y;
+		public float z;
+		public float w;
 
-		public FloatPairData(float key, float value)
+		public Vector4Serializable(float x, float y, float z, float w)
 		{
-			Key = key;
-			Value = value;
+			this.x = x;
+			this.y = y;
+			this.z = z;
+			this.w = w;
 		}
-		
-		public override string ToString()
+
+		public static implicit operator Vector4Serializable(Vector4 v)
 		{
-			return $"[{Key.ToString("F2")},{Value.ToString("F2")}]";
+			return new Vector4Serializable(v.x, v.y, v.z, v.w);
+		}
+
+		public static implicit operator Vector4Serializable(Quaternion v)
+		{
+			return new Vector4Serializable(v.x, v.y, v.z, v.w);
+		}
+
+		public static implicit operator Vector4(Vector4Serializable v)
+		{
+			return new Vector4(v.x, v.y, v.z, v.w);
+		}
+
+		public static implicit operator Quaternion(Vector4Serializable v)
+		{
+			return new Quaternion(v.x, v.y, v.z, v.w);
 		}
 	}
 	
 	[Serializable]
-	public struct FloatStringData
+	public struct Vector3Serializable
 	{
-		public float Key;
-		public string Value;
+		public float x;
+		public float y;
+		public float z;
 
-		public FloatStringData(float key, string value)
+		public Vector3Serializable(float x, float y, float z)
 		{
-			Key = key;
-			Value = value;
+			this.x = x;
+			this.y = y;
+			this.z = z;
 		}
-		
-		public override string ToString()
+
+		public static implicit operator Vector3Serializable(Vector3 v)
 		{
-			return $"[{Key.ToString("F2")},{Value}]";
+			return new Vector3Serializable(v.x, v.y, v.z);
+		}
+
+		public static implicit operator Vector3(Vector3Serializable v)
+		{
+			return new Vector3(v.x, v.y, v.z);
 		}
 	}
 	
 	[Serializable]
-	public struct StringPairData
+	public struct Vector2Serializable
 	{
-		public string Key;
-		public string Value;
+		public float x;
+		public float y;
 
-		public StringPairData(string key, string value)
+		public Vector2Serializable(float x, float y)
 		{
-			Key = key;
-			Value = value;
+			this.x = x;
+			this.y = y;
 		}
-		
-		public override string ToString()
+
+		public static implicit operator Vector2Serializable(Vector2 v)
 		{
-			return $"[{Key},{Value}]";
+			return new Vector2Serializable(v.x, v.y);
+		}
+
+		public static implicit operator Vector2(Vector2Serializable v)
+		{
+			return new Vector3(v.x, v.y);
 		}
 	}
 	
 	[Serializable]
-	public struct StringIntData
+	public struct Vector3IntSerializable
 	{
-		public string Key;
-		public int Value;
+		public int x;
+		public int y;
+		public int z;
 
-		public StringIntData(string key, int value)
+		public Vector3IntSerializable(int x, int y, int z)
 		{
-			Key = key;
-			Value = value;
+			this.x = x;
+			this.y = y;
+			this.z = z;
 		}
-		
-		public override string ToString()
+
+		public static implicit operator Vector3IntSerializable(Vector3Int v)
 		{
-			return $"[{Key},{Value.ToString()}]";
+			return new Vector3IntSerializable(v.x, v.y, v.z);
+		}
+
+		public static implicit operator Vector3Int(Vector3IntSerializable v)
+		{
+			return new Vector3Int(v.x, v.y, v.z);
 		}
 	}
 	
 	[Serializable]
-	public struct StringFloatData
+	public struct Vector2IntSerializable
 	{
-		public string Key;
-		public float Value;
+		public int x;
+		public int y;
 
-		public StringFloatData(string key, float value)
+		public Vector2IntSerializable(int x, int y)
 		{
-			Key = key;
-			Value = value;
+			this.x = x;
+			this.y = y;
 		}
-		
-		public override string ToString()
+
+		public static implicit operator Vector2IntSerializable(Vector2Int v)
 		{
-			return $"[{Key},{Value.ToString("F2")}]";
+			return new Vector2IntSerializable(v.x, v.y);
+		}
+
+		public static implicit operator Vector2Int(Vector2IntSerializable v)
+		{
+			return new Vector2Int(v.x, v.y);
 		}
 	}
 }
