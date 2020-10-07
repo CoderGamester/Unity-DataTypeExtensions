@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 
 // ReSharper disable once CheckNamespace
 
@@ -40,6 +39,11 @@ namespace GameLovers
 		/// The field value with possibility to be changed
 		/// </summary>
 		new T Value { get; set; }
+		
+		/// <remarks>
+		/// It invokes any update method that is observing to this field
+		/// </remarks>
+		void InvokeUpdate();
 	}
 	
 	/// <inheritdoc />
@@ -56,7 +60,7 @@ namespace GameLovers
 			set
 			{
 				_value = value;
-				InvokeUpdates(value);
+				InvokeUpdate();
 			}
 		}
 
@@ -92,11 +96,12 @@ namespace GameLovers
 			_updateActions.Remove(onUpdate);
 		}
 
-		protected void InvokeUpdates(T value)
+		/// <inheritdoc />
+		public void InvokeUpdate()
 		{
 			for (var i = 0; i < _updateActions.Count; i++)
 			{
-				_updateActions[i].Invoke(value);
+				_updateActions[i].Invoke(Value);
 			}
 		}
 	}
@@ -114,7 +119,7 @@ namespace GameLovers
 			set
 			{
 				_fieldSetter(value);
-				InvokeUpdates(value);
+				InvokeUpdate();
 			}
 		}
 

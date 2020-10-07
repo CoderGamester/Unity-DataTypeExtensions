@@ -88,6 +88,11 @@ namespace GameLovers
 
 		/// <inheritdoc cref="Dictionary{TKey,TValue}.Remove" />
 		bool Remove(TKey key);
+		
+		/// <remarks>
+		/// It invokes any update method that is observing to the given <paramref name="key"/> on this dictionary
+		/// </remarks>
+		void InvokeUpdate(TKey key);
 	}
 
 	/// <inheritdoc />
@@ -125,20 +130,8 @@ namespace GameLovers
 			set
 			{
 				Dictionary[key] = value;
- 
-				if (_onUpdateActions.TryGetValue(key, out var actions))
-				{
-					for (var i = 0; i < actions.Count; i++)
-					{
-						actions[i](key, value);
-					}
-				}
-
-				var updates = _genericUpdateActions[(int) ObservableUpdateType.Updated];
-				for (var i = 0; i < updates.Count; i++)
-				{
-					updates[i](key, value);
-				}
+				
+				InvokeUpdate(key);
 			}
 		}
 
@@ -197,6 +190,11 @@ namespace GameLovers
 
 				Dictionary.Remove(key);
 			}
+
+			if (!ret)
+			{
+				return false;
+			}
 			
 			if (_onRemoveActions.TryGetValue(key, out var actions))
 			{
@@ -212,7 +210,7 @@ namespace GameLovers
 				updates[i](key, value);
 			}
 
-			return ret;
+			return true;
 		}
 
 		/// <inheritdoc />
@@ -267,6 +265,26 @@ namespace GameLovers
 			onUpdate(key, Dictionary[key]);
 			
 			Observe(key, updateType, onUpdate);
+		}
+
+		/// <inheritdoc />
+		public void InvokeUpdate(TKey key)
+		{
+			var value = this[key];
+ 
+			if (_onUpdateActions.TryGetValue(key, out var actions))
+			{
+				for (var i = 0; i < actions.Count; i++)
+				{
+					actions[i](key, value);
+				}
+			}
+
+			var updates = _genericUpdateActions[(int) ObservableUpdateType.Updated];
+			for (var i = 0; i < updates.Count; i++)
+			{
+				updates[i](key, value);
+			}
 		}
 
 		/// <inheritdoc />

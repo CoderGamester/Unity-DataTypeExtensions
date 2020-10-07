@@ -75,6 +75,11 @@ namespace GameLovers
 		/// Thrown if the given <paramref name="index"/> is out of the range of the list size
 		/// </exception>
 		void Remove(int index);
+		
+		/// <remarks>
+		/// It invokes any update method that is observing to the given <paramref name="index"/> on this list
+		/// </remarks>
+		void InvokeUpdate(int index);
 	}
 	
 	/// <inheritdoc />
@@ -96,11 +101,7 @@ namespace GameLovers
 			{
 				List[index] = value;
 				
-				var updates = _genericUpdateActions[(int) ObservableUpdateType.Updated];
-				for (var i = 0; i < updates.Count; i++)
-				{
-					updates[i](i, value);
-				}
+				InvokeUpdate(index);
 			}
 		}
 		
@@ -168,6 +169,18 @@ namespace GameLovers
 			onUpdate(index, List[index]);
 			
 			Observe(updateType, onUpdate);
+		}
+
+		/// <inheritdoc />
+		public void InvokeUpdate(int index)
+		{
+			var value = this[index];
+			
+			var updates = _genericUpdateActions[(int) ObservableUpdateType.Updated];
+			for (var i = 0; i < updates.Count; i++)
+			{
+				updates[i](i, value);
+			}
 		}
 
 		/// <inheritdoc />
