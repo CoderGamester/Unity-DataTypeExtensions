@@ -86,6 +86,27 @@ namespace GameLoversEditor.DataExtensions.Tests
 		}
 
 		[Test]
+		public void InvokeCheck()
+		{
+			_observableField.Observe(_caller.UpdateCall);
+			_observableResolverField.Observe(_caller.UpdateCall);
+			
+			_observableField.InvokeUpdate();
+			_observableResolverField.InvokeUpdate();
+			
+			_caller.Received(2).UpdateCall(0);
+		}
+
+		[Test]
+		public void InvokeCheck_NotObserving_DoesNothing()
+		{
+			_observableField.InvokeUpdate();
+			_observableResolverField.InvokeUpdate();
+			
+			_caller.DidNotReceive().UpdateCall(0);
+		}
+
+		[Test]
 		public void StopObserveCheck()
 		{
 			const int valueCheck = 6;

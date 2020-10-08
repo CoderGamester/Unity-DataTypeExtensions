@@ -174,7 +174,7 @@ namespace GameLovers
 		/// <inheritdoc />
 		public void InvokeUpdate(int index)
 		{
-			var value = this[index];
+			var value = List[index];
 			
 			var updates = _genericUpdateActions[(int) ObservableUpdateType.Updated];
 			for (var i = 0; i < updates.Count; i++)

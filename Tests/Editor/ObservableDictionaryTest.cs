@@ -34,6 +34,12 @@ namespace GameLoversEditor.DataExtensions.Tests
 			_mockDictionary = Substitute.For<IDictionary<int, int>>();
 			_observableDictionary = new ObservableDictionary<int, int>(_mockDictionary);
 			_observableResolverDictionary = new ObservableResolverDictionary<int, int>(() => _mockDictionary);
+
+			_mockDictionary.TryGetValue(_key, out _).Returns(callInfo =>
+			{
+				callInfo[1] = _mockDictionary[_key];
+				return true;
+			});
 		}
 
 		[Test]
@@ -101,7 +107,7 @@ namespace GameLoversEditor.DataExtensions.Tests
 			
 			_caller.Received(4).AddCall(_key, valueCheck);
 			_caller.Received(4).UpdateCall(_key, valueCheck);
-			_caller.Received(4).RemoveCall(_key, 0);
+			_caller.Received(4).RemoveCall(_key, valueCheck);
 		}
 
 		[Test]
@@ -117,6 +123,41 @@ namespace GameLoversEditor.DataExtensions.Tests
 			_caller.Received(2).AddCall(_key, 0);
 			_caller.Received(2).UpdateCall(_key, 0);
 			_caller.Received(2).RemoveCall(_key, 0);
+		}
+
+		[Test]
+		public void InvokeCheck()
+		{
+			_observableDictionary.Observe(_key, ObservableUpdateType.Added, _caller.AddCall);
+			_observableDictionary.Observe(_key, ObservableUpdateType.Updated, _caller.UpdateCall);
+			_observableDictionary.Observe(_key, ObservableUpdateType.Removed, _caller.RemoveCall);
+			_observableDictionary.Observe(ObservableUpdateType.Added, _caller.AddCall);
+			_observableDictionary.Observe(ObservableUpdateType.Updated, _caller.UpdateCall);
+			_observableDictionary.Observe(ObservableUpdateType.Removed, _caller.RemoveCall);
+			_observableResolverDictionary.Observe(_key, ObservableUpdateType.Added, _caller.AddCall);
+			_observableResolverDictionary.Observe(_key, ObservableUpdateType.Updated, _caller.UpdateCall);
+			_observableResolverDictionary.Observe(_key, ObservableUpdateType.Removed, _caller.RemoveCall);
+			_observableResolverDictionary.Observe(ObservableUpdateType.Added, _caller.AddCall);
+			_observableResolverDictionary.Observe(ObservableUpdateType.Updated, _caller.UpdateCall);
+			_observableResolverDictionary.Observe(ObservableUpdateType.Removed, _caller.RemoveCall);
+			
+			_observableDictionary.InvokeUpdate(_key);
+			_observableResolverDictionary.InvokeUpdate(_key);
+			
+			_caller.DidNotReceive().AddCall(_key, 0);
+			_caller.Received(4).UpdateCall(_key, 0);
+			_caller.DidNotReceive().RemoveCall(_key, 0);
+		}
+
+		[Test]
+		public void InvokeCheck_NotObserving_DoesNothing()
+		{
+			_observableDictionary.InvokeUpdate(_key);
+			_observableResolverDictionary.InvokeUpdate(_key);
+			
+			_caller.DidNotReceive().AddCall(_key, 0);
+			_caller.DidNotReceive().UpdateCall(_key, 0);
+			_caller.DidNotReceive().RemoveCall(_key, 0);
 		}
 
 		[Test]

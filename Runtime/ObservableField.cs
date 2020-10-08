@@ -54,7 +54,7 @@ namespace GameLovers
 		private T _value;
 
 		/// <inheritdoc cref="IObservableField{T}.Value" />
-		public T Value
+		public virtual T Value
 		{
 			get => _value;
 			set
@@ -113,7 +113,7 @@ namespace GameLovers
 		private readonly Action<T> _fieldSetter;
 
 		/// <inheritdoc cref="IObservableField{T}.Value" />
-		public new T Value
+		public override T Value
 		{
 			get => _fieldResolver();
 			set

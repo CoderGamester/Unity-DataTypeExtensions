@@ -43,7 +43,7 @@ namespace GameLovers
 		/// </summary>
 		void Observe(TKey key, ObservableUpdateType updateType, Action<TKey, TValue> onUpdate);
 		
-		/// <inheritdoc cref="Observe(TKey,GameLovers.ObservableUpdateType,System.Action{TKey,TValue})" />
+		/// <inheritdoc cref="Observe(TKey,FistLight.ObservableUpdateType,System.Action{TKey,TValue})" />
 		/// <remarks>
 		/// It invokes the given <paramref name="onUpdate"/> method before starting to observe to this dictionary
 		/// </remarks>
@@ -182,19 +182,12 @@ namespace GameLovers
 		/// <inheritdoc />
 		public bool Remove(TKey key)
 		{
-			var ret = false;
-
-			if (Dictionary.TryGetValue(key, out var value))
-			{
-				ret = true;
-
-				Dictionary.Remove(key);
-			}
-
-			if (!ret)
+			if (!Dictionary.TryGetValue(key, out var value))
 			{
 				return false;
 			}
+			
+			Dictionary.Remove(key);
 			
 			if (_onRemoveActions.TryGetValue(key, out var actions))
 			{
@@ -270,7 +263,7 @@ namespace GameLovers
 		/// <inheritdoc />
 		public void InvokeUpdate(TKey key)
 		{
-			var value = this[key];
+			var value = Dictionary[key];
  
 			if (_onUpdateActions.TryGetValue(key, out var actions))
 			{

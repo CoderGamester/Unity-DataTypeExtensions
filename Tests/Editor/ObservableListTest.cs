@@ -114,6 +114,35 @@ namespace GameLoversEditor.DataExtensions.Tests
 		}
 
 		[Test]
+		public void InvokeCheck()
+		{
+			_observableList.Observe(ObservableUpdateType.Added, _caller.AddCall);
+			_observableList.Observe(ObservableUpdateType.Updated, _caller.UpdateCall);
+			_observableList.Observe(ObservableUpdateType.Removed, _caller.RemoveCall);
+			_observableResolverList.Observe(ObservableUpdateType.Added, _caller.AddCall);
+			_observableResolverList.Observe(ObservableUpdateType.Updated, _caller.UpdateCall);
+			_observableResolverList.Observe(ObservableUpdateType.Removed, _caller.RemoveCall);
+			
+			_observableList.InvokeUpdate(_index);
+			_observableResolverList.InvokeUpdate(_index);
+			
+			_caller.DidNotReceive().AddCall(_index, 0);
+			_caller.Received(2).UpdateCall(_index, 0);
+			_caller.DidNotReceive().RemoveCall(_index, 0);
+		}
+
+		[Test]
+		public void InvokeCheck_NotObserving_DoesNothing()
+		{
+			_observableList.InvokeUpdate(_index);
+			_observableResolverList.InvokeUpdate(_index);
+			
+			_caller.DidNotReceive().AddCall(_index, 0);
+			_caller.DidNotReceive().UpdateCall(_index, 0);
+			_caller.DidNotReceive().RemoveCall(_index, 0);
+		}
+
+		[Test]
 		public void StopObserveCheck()
 		{
 			const int valueCheck = 5;
