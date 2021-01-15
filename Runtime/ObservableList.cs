@@ -22,7 +22,7 @@ namespace GameLovers
 	/// <remarks>
 	/// Read only observable list interface
 	/// </remarks>
-	public interface IObservableListReader<out T> :IObservableListReader, IEnumerable<T> where T : struct
+	public interface IObservableListReader<T> :IObservableListReader, IEnumerable<T> where T : struct
 	{
 		/// <summary>
 		/// Looks up and return the data that is associated with the given <paramref name="index"/>
@@ -33,6 +33,12 @@ namespace GameLovers
 		/// Requests this list as a <see cref="IReadOnlyList{T}"/>
 		/// </summary>
 		IReadOnlyList<T> ReadOnlyList { get; }
+
+		/// <inheritdoc cref="List{T}.Contains"/>
+		bool Contains(T value);
+
+		/// <inheritdoc cref="List{T}.IndexOf(T)"/>
+		int IndexOf(T value);
 		
 		/// <summary>
 		/// Observes this list with the given <paramref name="onUpdate"/> when any data changes following the rule of
@@ -62,19 +68,14 @@ namespace GameLovers
 		/// </summary>
 		new T this[int index] { get; set; }
 		
-		/// <summary>
-		/// Add the given <paramref name="data"/> to the list.
-		/// It will notify any observer listing to its data
-		/// </summary>
+		/// <inheritdoc cref="List{T}.Remove"/>
 		void Add(T data);
 		
-		/// <summary>
-		/// Removes the data associated with the given <paramref name="index"/>
-		/// </summary>
-		/// <exception cref="IndexOutOfRangeException">
-		/// Thrown if the given <paramref name="index"/> is out of the range of the list size
-		/// </exception>
-		void Remove(int index);
+		/// <inheritdoc cref="List{T}.Remove"/>
+		void Remove(T data);
+		
+		/// <inheritdoc cref="List{T}.RemoveAt"/>
+		void RemoveAt(int index);
 		
 		/// <remarks>
 		/// It invokes any update method that is observing to the given <paramref name="index"/> on this list
@@ -108,19 +109,25 @@ namespace GameLovers
 		/// <inheritdoc />
 		public int Count => List.Count;
 		/// <inheritdoc />
-		public IReadOnlyList<T> ReadOnlyList => new ReadOnlyCollection<T>(List);
+		public IReadOnlyList<T> ReadOnlyList => List;
 		
-		protected virtual IList<T> List { get; }
+		protected virtual List<T> List { get; }
 		
 		protected ObservableList() {}
 		
-		public ObservableList(IList<T> list)
+		public ObservableList(List<T> list)
 		{
 			List = list;
 		}
 
+		/// <inheritdoc cref="List{T}.GetEnumerator"/>
+		public List<T>.Enumerator GetEnumerator()
+		{
+			return List.GetEnumerator();
+		}
+
 		/// <inheritdoc />
-		public IEnumerator<T> GetEnumerator()
+		IEnumerator<T> IEnumerable<T>.GetEnumerator()
 		{
 			return List.GetEnumerator();
 		}
@@ -128,9 +135,21 @@ namespace GameLovers
 		/// <inheritdoc />
 		IEnumerator IEnumerable.GetEnumerator()
 		{
-			return GetEnumerator();
+			return List.GetEnumerator();
 		}
-		
+
+		/// <inheritdoc />
+		public bool Contains(T value)
+		{
+			return List.Contains(value);
+		}
+
+		/// <inheritdoc />
+		public int IndexOf(T value)
+		{
+			return List.IndexOf(value);
+		}
+
 		/// <inheritdoc />
 		public void Add(T data)
 		{
@@ -144,7 +163,19 @@ namespace GameLovers
 		}
 
 		/// <inheritdoc />
-		public void Remove(int index)
+		public void Remove(T data)
+		{
+			List.Remove(data);
+
+			var updates = _genericUpdateActions[(int) ObservableUpdateType.Removed];
+			for (var i = 0; i < updates.Count; i++)
+			{
+				updates[i](i, data);
+			}
+		}
+
+		/// <inheritdoc />
+		public void RemoveAt(int index)
 		{
 			var data = List[index];
 			
@@ -193,11 +224,11 @@ namespace GameLovers
 	/// <inheritdoc />
 	public class ObservableResolverList<T> : ObservableList<T> where T : struct
 	{
-		private readonly Func<IList<T>> _listResolver;
+		private readonly Func<List<T>> _listResolver;
 
-		protected override IList<T> List => _listResolver();
+		protected override List<T> List => _listResolver();
 
-		public ObservableResolverList(Func<IList<T>> listResolver)
+		public ObservableResolverList(Func<List<T>> listResolver)
 		{
 			_listResolver = listResolver;
 		}

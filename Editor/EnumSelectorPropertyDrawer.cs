@@ -32,8 +32,8 @@ namespace GameLoversEditor
 
 			var enumType = typeof(T);
 			var enumValues = GetSortedEnumConstants(enumType);
-			var selectionWidth = Mathf.Clamp(EditorGUIUtility.labelWidth, EditorGUIUtility.labelWidth, position.width * 0.33f);
-			var selectionRect = new Rect(position.width - selectionWidth, position.y, selectionWidth, position.height);
+			var selectionWidth = Mathf.Clamp(EditorGUIUtility.labelWidth, EditorGUIUtility.labelWidth, position.width * 0.5f);
+			var selectionRect = new Rect(position.x + position.width - selectionWidth, position.y, selectionWidth, position.height);
 			var selectionProperty = property.FindPropertyRelative("_selection");
 			var currentString = selectionProperty.stringValue;
 			var currentIndex = Array.IndexOf(enumValues, currentString);
