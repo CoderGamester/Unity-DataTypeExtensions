@@ -31,7 +31,7 @@ namespace GameLoversEditor.DataExtensions.Tests
 		public void Init()
 		{
 			_caller = Substitute.For<IMockCaller<int>>();
-			_list = Substitute.For<List<int>>();
+			_list = new List<int>();
 			_observableList = new ObservableList<int>(_list);
 			_observableResolverList = new ObservableResolverList<int>(() => _list);
 		}
