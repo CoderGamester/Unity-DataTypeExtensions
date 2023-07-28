@@ -18,13 +18,13 @@ namespace GameLoversEditor
 	/// {
 	/// }
 	/// </summary>
-	public abstract class EnumSelectorPropertyDrawer<T> : PropertyDrawer 
+	public abstract class EnumSelectorPropertyDrawer<T> : PropertyDrawer
 		where T : Enum
 	{
-		private static readonly Dictionary<Type, string[]> _sortedEnums = new Dictionary<Type, string[]>();
-	 
+		private static readonly Dictionary<Type, GUIContent[]> _sortedEnums = new Dictionary<Type, GUIContent[]>();
+
 		private bool _errorFound;
-	 
+
 		/// <inheritdoc />
 		public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
 		{
@@ -32,18 +32,14 @@ namespace GameLoversEditor
 
 			var enumType = typeof(T);
 			var enumValues = GetSortedEnumConstants(enumType);
-			var selectionWidth = Mathf.Clamp(EditorGUIUtility.labelWidth, EditorGUIUtility.labelWidth, position.width * 0.33f);
-			var selectionRect = new Rect(position.width - selectionWidth, position.y, selectionWidth, position.height);
 			var selectionProperty = property.FindPropertyRelative("_selection");
 			var currentString = selectionProperty.stringValue;
-			var currentIndex = Array.IndexOf(enumValues, currentString);
-	 
-			EditorGUI.LabelField(position, label);
-	 
+			var currentIndex = string.IsNullOrWhiteSpace(currentString) ? 0 : Array.FindIndex(enumValues, s => s.text == currentString);
+
 			if (currentIndex != -1)
 			{
-				selectionProperty.stringValue = enumValues[EditorGUI.Popup(selectionRect, currentIndex, enumValues)];
-	 
+				selectionProperty.stringValue = enumValues[EditorGUI.Popup(position, label, currentIndex, enumValues)].text;
+
 				_errorFound = false;
 			}
 			else
@@ -52,37 +48,46 @@ namespace GameLoversEditor
 				if (!_errorFound)
 				{
 					var targetObject = selectionProperty.serializedObject.targetObject;
-					
+
 					Debug.LogError($"Invalid enum constant: {enumType.Name}.{currentString} in object {targetObject.name} of type: {targetObject.GetType().Name}");
-					
+
 					_errorFound = true;
 				}
-	 
+
 				var color = GUI.contentColor;
-				var finalArray = new[] { "Invalid: " + currentString }.Concat(enumValues).ToArray();
-	 
+				var finalArray = new[] { new GUIContent("Invalid: " + currentString) }.Concat(enumValues).ToArray();
+
 				GUI.contentColor = Color.red;
-				var newSelection = EditorGUI.Popup(selectionRect, 0, finalArray);
+				var newSelection = EditorGUI.Popup(position, label, 0, finalArray);
 				GUI.contentColor = color;
-				
+
 				if (newSelection > 0)
 				{
-					selectionProperty.stringValue = finalArray[newSelection];
+					selectionProperty.stringValue = finalArray[newSelection].text;
 				}
 			}
-	 
+
 			EditorGUI.EndProperty();
 		}
-	 
-		private string[] GetSortedEnumConstants(Type enumType)
+
+		private GUIContent[] GetSortedEnumConstants(Type enumType)
 		{
-			if (!_sortedEnums.TryGetValue(enumType, out var values))
+			if (!_sortedEnums.TryGetValue(enumType, out var content))
 			{
-				values = Enum.GetNames(enumType);
+				var values = Enum.GetNames(enumType);
+
+				content = new GUIContent[values.Length];
+
 				Array.Sort(values);
-				_sortedEnums.Add(enumType, values);
+
+				for (var i = 0; i < values.Length; i++)
+				{
+					content[i] = new GUIContent(values[i]);
+				}
+
+				_sortedEnums.Add(enumType, content);
 			}
-			return values;
+			return content;
 		}
 	}
 }

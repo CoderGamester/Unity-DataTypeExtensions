@@ -25,57 +25,54 @@ namespace GameLovers
 		/// Looks up and return the data that is associated with the given <paramref name="key"/>
 		/// </summary>
 		TValue this[TKey key] { get; }
-		
+
 		/// <summary>
 		/// Requests this dictionary as a <see cref="IReadOnlyDictionary{TKey,TValue}"/>
 		/// </summary>
-		IReadOnlyDictionary<TKey, TValue> ReadOnlyDictionary { get; }
-			
+		ReadOnlyDictionary<TKey, TValue> ReadOnlyDictionary { get; }
+
 		/// <inheritdoc cref="Dictionary{TKey,TValue}.TryGetValue" />
 		bool TryGetValue(TKey key, out TValue value);
 
 		/// <inheritdoc cref="Dictionary{TKey,TValue}.ContainsKey" />
 		bool ContainsKey(TKey key);
-		
+
 		/// <summary>
-		/// Observes this dictionary with the given <paramref name="onUpdate"/> when the given <paramref name="key"/> data
-		/// changes following the rule of the given <paramref name="updateType"/>
+		/// Observes to this dictionary changes with the given <paramref name="onUpdate"/>
 		/// </summary>
-		void Observe(TKey key, ObservableUpdateType updateType, Action<TKey, TValue> onUpdate);
-		
-		/// <inheritdoc cref="Observe(TKey,GameLovers.ObservableUpdateType,System.Action{TKey,TValue})" />
+		void Observe(Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate);
+
+		/// <summary>
+		/// Observes to this dictionary changes with the given <paramref name="onUpdate"/> when the given <paramref name="key"/>
+		/// data changes
+		/// </summary>
+		void Observe(TKey key, Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate);
+
+		/// <inheritdoc cref="Observe(TKey,System.Action{TKey,TValue,TValue,FirstLight.ObservableUpdateType})" />
 		/// <remarks>
 		/// It invokes the given <paramref name="onUpdate"/> method before starting to observe to this dictionary
 		/// </remarks>
-		void InvokeObserve(TKey id, ObservableUpdateType updateType, Action<TKey, TValue> onUpdate);
-		
+		void InvokeObserve(TKey key, Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate);
+
 		/// <summary>
-		/// Observes this dictionary with the given <paramref name="onUpdate"/> when any data changes following the rule of
-		/// the given <paramref name="updateType"/>
+		/// Stops observing this dictionary with the given <paramref name="onUpdate"/> of any data changes
 		/// </summary>
-		void Observe(ObservableUpdateType updateType, Action<TKey, TValue> onUpdate);
-		
-		/// <summary>
-		/// Stops observing this dictionary with the given <paramref name="onUpdate"/> of the given <paramref name="key"/> data
-		/// changes following the rule of the given <paramref name="updateType"/>
-		/// </summary>
-		void StopObserving(TKey key, ObservableUpdateType updateType, Action<TKey, TValue> onUpdate);
-		
-		/// <summary>
-		/// Stops observing this dictionary with the given <paramref name="onUpdate"/> of any data changes following the rule of
-		/// the given <paramref name="updateType"/>
-		/// </summary>
-		void StopObserving(ObservableUpdateType updateType, Action<TKey, TValue> onUpdate);
-		
+		void StopObserving(Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate);
+
 		/// <summary>
 		/// Stops observing this dictionary updates for the given <paramref name="key"/>
 		/// </summary>
 		void StopObserving(TKey key);
+
+		/// <summary>
+		/// Stops observing this dictionary changes from all the given <paramref name="subscriber"/> calls.
+		/// If the given <paramref name="subscriber"/> is null then will stop observing from everything.
+		/// </summary>
+		void StopObservingAll(object subscriber = null);
 	}
 
 	/// <inheritdoc />
 	public interface IObservableDictionary<TKey, TValue> : IObservableDictionaryReader<TKey, TValue>
-		where TValue : struct
 	{
 		/// <summary>
 		/// Changes the given <paramref name="key"/> in the dictionary.
@@ -88,30 +85,29 @@ namespace GameLovers
 
 		/// <inheritdoc cref="Dictionary{TKey,TValue}.Remove" />
 		bool Remove(TKey key);
+
+		/// <remarks>
+		/// It invokes any update method that is observing to the given <paramref name="key"/> on this dictionary
+		/// </remarks>
+		void InvokeUpdate(TKey key);
 	}
 
 	/// <inheritdoc />
 	public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TValue>
-		where TValue : struct
 	{
-		private readonly IDictionary<TKey, IList<Action<TKey, TValue>>> _onAddActions = new Dictionary<TKey, IList<Action<TKey, TValue>>>();
-		private readonly IDictionary<TKey, IList<Action<TKey, TValue>>> _onUpdateActions = new Dictionary<TKey, IList<Action<TKey, TValue>>>();
-		private readonly IDictionary<TKey, IList<Action<TKey, TValue>>> _onRemoveActions = new Dictionary<TKey, IList<Action<TKey, TValue>>>();
-		private readonly IDictionary<int, IList<Action<TKey, TValue>>> _genericUpdateActions = new Dictionary<int, IList<Action<TKey, TValue>>>
-		{
-			{(int) ObservableUpdateType.Added, new List<Action<TKey, TValue>>()},
-			{(int) ObservableUpdateType.Removed, new List<Action<TKey, TValue>>()},
-			{(int) ObservableUpdateType.Updated, new List<Action<TKey, TValue>>()}
-		};
+		private readonly IDictionary<TKey, IList<Action<TKey, TValue, TValue, ObservableUpdateType>>> _keyUpdateActions =
+			new Dictionary<TKey, IList<Action<TKey, TValue, TValue, ObservableUpdateType>>>();
+		private readonly IList<Action<TKey, TValue, TValue, ObservableUpdateType>> _updateActions =
+			new List<Action<TKey, TValue, TValue, ObservableUpdateType>>();
 
 		/// <inheritdoc />
 		public int Count => Dictionary.Count;
 		/// <inheritdoc />
-		public IReadOnlyDictionary<TKey, TValue> ReadOnlyDictionary => new ReadOnlyDictionary<TKey, TValue>(Dictionary);
+		public ReadOnlyDictionary<TKey, TValue> ReadOnlyDictionary => new ReadOnlyDictionary<TKey, TValue>(Dictionary);
 
 		protected virtual IDictionary<TKey, TValue> Dictionary { get; }
-		
-		protected ObservableDictionary() {}
+
+		protected ObservableDictionary() { }
 
 		public ObservableDictionary(IDictionary<TKey, TValue> dictionary)
 		{
@@ -124,21 +120,11 @@ namespace GameLovers
 			get => Dictionary[key];
 			set
 			{
-				Dictionary[key] = value;
- 
-				if (_onUpdateActions.TryGetValue(key, out var actions))
-				{
-					for (var i = 0; i < actions.Count; i++)
-					{
-						actions[i](key, value);
-					}
-				}
+				var previousValue = Dictionary[key];
 
-				var updates = _genericUpdateActions[(int) ObservableUpdateType.Updated];
-				for (var i = 0; i < updates.Count; i++)
-				{
-					updates[i](key, value);
-				}
+				Dictionary[key] = value;
+
+				InvokeUpdate(key, previousValue);
 			}
 		}
 
@@ -170,159 +156,155 @@ namespace GameLovers
 		public void Add(TKey key, TValue value)
 		{
 			Dictionary.Add(key, value);
-			
-			if (_onAddActions.TryGetValue(key, out var actions))
+
+			if (_keyUpdateActions.TryGetValue(key, out var actions))
 			{
 				for (var i = 0; i < actions.Count; i++)
 				{
-					actions[i](key, value);
+					actions[i](key, default, value, ObservableUpdateType.Added);
 				}
 			}
 
-			var updates = _genericUpdateActions[(int) ObservableUpdateType.Added];
-			for (var i = 0; i < updates.Count; i++)
+			for (var i = 0; i < _updateActions.Count; i++)
 			{
-				updates[i](key, value);
+				_updateActions[i](key, default, value, ObservableUpdateType.Added);
 			}
 		}
 
 		/// <inheritdoc />
 		public bool Remove(TKey key)
 		{
-			var ret = false;
-
-			if (Dictionary.TryGetValue(key, out var value))
+			if (!Dictionary.TryGetValue(key, out var value))
 			{
-				ret = true;
-
-				Dictionary.Remove(key);
+				return false;
 			}
-			
-			if (_onRemoveActions.TryGetValue(key, out var actions))
+
+			Dictionary.Remove(key);
+
+			if (_keyUpdateActions.TryGetValue(key, out var actions))
 			{
 				for (var i = 0; i < actions.Count; i++)
 				{
-					actions[i](key, value);
+					actions[i](key, value, default, ObservableUpdateType.Removed);
 				}
 			}
 
-			var updates = _genericUpdateActions[(int) ObservableUpdateType.Removed];
-			for (var i = 0; i < updates.Count; i++)
+			for (var i = 0; i < _updateActions.Count; i++)
 			{
-				updates[i](key, value);
+				_updateActions[i](key, value, default, ObservableUpdateType.Removed);
 			}
 
-			return ret;
+			return true;
 		}
 
 		/// <inheritdoc />
-		public void Observe(TKey key, ObservableUpdateType updateType, Action<TKey, TValue> onUpdate)
+		public void InvokeUpdate(TKey key)
 		{
-			switch (updateType)
-			{
-				case ObservableUpdateType.Added:
-					if (!_onAddActions.TryGetValue(key, out var addList))
-					{
-						addList = new List<Action<TKey, TValue>>();
-						
-						_onAddActions.Add(key, addList);
-					}
-					
-					addList.Add(onUpdate);
-					break;
-				case ObservableUpdateType.Updated:
-					if (!_onUpdateActions.TryGetValue(key, out var updateList))
-					{
-						updateList = new List<Action<TKey, TValue>>();
-						
-						_onUpdateActions.Add(key, updateList);
-					}
-					
-					updateList.Add(onUpdate);
-					break;
-				case ObservableUpdateType.Removed:
-					if (!_onRemoveActions.TryGetValue(key, out var removeList))
-					{
-						removeList = new List<Action<TKey, TValue>>();
-						
-						_onRemoveActions.Add(key, removeList);
-					}
-					
-					removeList.Add(onUpdate);
-					break;
-				default:
-					throw new ArgumentOutOfRangeException(nameof(updateType), updateType, "Wrong update type");
-			}
-		}
-
-		/// <inheritdoc />
-		public void Observe(ObservableUpdateType updateType, Action<TKey, TValue> onUpdate)
-		{
-			_genericUpdateActions[(int) updateType].Add(onUpdate);
-		}
-
-		/// <inheritdoc />
-		public void InvokeObserve(TKey key, ObservableUpdateType updateType, Action<TKey, TValue> onUpdate)
-		{
-			onUpdate(key, Dictionary[key]);
-			
-			Observe(key, updateType, onUpdate);
-		}
-
-		/// <inheritdoc />
-		public void StopObserving(TKey key, ObservableUpdateType updateType, Action<TKey, TValue> onUpdate)
-		{
-			switch (updateType)
-			{
-				case ObservableUpdateType.Added:
-					if (_onAddActions.TryGetValue(key, out var addList))
-					{
-						addList.Remove(onUpdate);
-					}
-					break;
-				case ObservableUpdateType.Updated:
-					if (_onUpdateActions.TryGetValue(key, out var updateList))
-					{
-						updateList.Remove(onUpdate);
-					}
-					break;
-				case ObservableUpdateType.Removed:
-					if (_onRemoveActions.TryGetValue(key, out var removeList))
-					{
-						removeList.Remove(onUpdate);
-					}
-					break;
-				default:
-					throw new ArgumentOutOfRangeException(nameof(updateType), updateType, "Wrong update type");
-			}
-		}
-		
-		/// <inheritdoc />
-		public void StopObserving(ObservableUpdateType updateType, Action<TKey, TValue> onUpdate)
-		{
-			_genericUpdateActions[(int) updateType].Remove(onUpdate);
+			InvokeUpdate(key, Dictionary[key]);
 		}
 
 		/// <inheritdoc />
 		public void StopObserving(TKey key)
 		{
-			if (_onAddActions.TryGetValue(key, out var addList))
-			{
-				addList.Clear();
+			_keyUpdateActions.Remove(key);
+		}
 
-				_onAddActions.Remove(key);
+		/// <inheritdoc />
+		public void Observe(Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate)
+		{
+			_updateActions.Add(onUpdate);
+		}
+
+		/// <inheritdoc />
+		public void Observe(TKey key, Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate)
+		{
+			var list = new List<Action<TKey, TValue, TValue, ObservableUpdateType>> { onUpdate };
+
+			if (_keyUpdateActions.TryGetValue(key, out var listeners))
+			{
+				listeners.Add(onUpdate);
 			}
-			if (_onUpdateActions.TryGetValue(key, out var updateList))
+			else
 			{
-				updateList.Clear();
-
-				_onUpdateActions.Remove(key);
+				_keyUpdateActions.Add(key, new List<Action<TKey, TValue, TValue, ObservableUpdateType>> { onUpdate });
 			}
-			if (_onRemoveActions.TryGetValue(key, out var removeList))
-			{
-				removeList.Clear();
+		}
 
-				_onRemoveActions.Remove(key);
+		/// <inheritdoc />
+		public void InvokeObserve(TKey key, Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate)
+		{
+			Observe(key, onUpdate);
+			InvokeUpdate(key);
+		}
+
+		/// <inheritdoc />
+		public void StopObserving(Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate)
+		{
+			foreach (var actions in _keyUpdateActions)
+			{
+				for (var i = actions.Value.Count - 1; i > -1; i--)
+				{
+					if (actions.Value[i] == onUpdate)
+					{
+						actions.Value.RemoveAt(i);
+					}
+				}
+			}
+
+			for (var i = _updateActions.Count - 1; i > -1; i--)
+			{
+				if (_updateActions[i] == onUpdate)
+				{
+					_updateActions.RemoveAt(i);
+				}
+			}
+		}
+
+		/// <inheritdoc />
+		public void StopObservingAll(object subscriber = null)
+		{
+			if (subscriber == null)
+			{
+				_keyUpdateActions.Clear();
+				_updateActions.Clear();
+				return;
+			}
+
+			foreach (var actions in _keyUpdateActions)
+			{
+				for (var i = actions.Value.Count - 1; i > -1; i--)
+				{
+					if (actions.Value[i].Target == subscriber)
+					{
+						actions.Value.RemoveAt(i);
+					}
+				}
+			}
+
+			for (var i = _updateActions.Count - 1; i > -1; i--)
+			{
+				if (_updateActions[i].Target == subscriber)
+				{
+					_updateActions.RemoveAt(i);
+				}
+			}
+		}
+
+		protected void InvokeUpdate(TKey key, TValue previousValue)
+		{
+			var value = Dictionary[key];
+
+			if (_keyUpdateActions.TryGetValue(key, out var actions))
+			{
+				for (var i = 0; i < actions.Count; i++)
+				{
+					actions[i](key, previousValue, value, ObservableUpdateType.Updated);
+				}
+			}
+
+			for (var i = 0; i < _updateActions.Count; i++)
+			{
+				_updateActions[i](key, previousValue, value, ObservableUpdateType.Updated);
 			}
 		}
 	}
