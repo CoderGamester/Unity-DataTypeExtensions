@@ -1,7 +1,7 @@
 {
   "name": "com.gamelovers.dataextensions",
   "displayName": "Data Extensions",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "unity": "2020.1",
   "description": "This package extends various sets of data types to be used in any type of data containers or persistent serializable data",
   "type": "library",
