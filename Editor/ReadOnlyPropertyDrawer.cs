@@ -1,6 +1,6 @@
-using FistLight;
 using UnityEditor;
 using UnityEngine;
+using GameLovers;
 
 // ReSharper disable once CheckNamespace
 

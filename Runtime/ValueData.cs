@@ -16,13 +16,13 @@ namespace GameLovers
 			Key = key;
 			Value = value;
 		}
-		
+
 		public override string ToString()
 		{
 			return $"[{Key.ToString()},{Value.ToString()}]";
 		}
 	}
-	
+
 	[Serializable]
 	public struct Vector4Int
 	{
@@ -39,7 +39,7 @@ namespace GameLovers
 			this.w = w;
 		}
 	}
-	
+
 	[Serializable]
 	public struct Vector4Serializable
 	{
@@ -76,7 +76,7 @@ namespace GameLovers
 			return new Quaternion(v.x, v.y, v.z, v.w);
 		}
 	}
-	
+
 	[Serializable]
 	public struct Vector3Serializable
 	{
@@ -101,7 +101,7 @@ namespace GameLovers
 			return new Vector3(v.x, v.y, v.z);
 		}
 	}
-	
+
 	[Serializable]
 	public struct Vector2Serializable
 	{
@@ -124,7 +124,7 @@ namespace GameLovers
 			return new Vector3(v.x, v.y);
 		}
 	}
-	
+
 	[Serializable]
 	public struct Vector3IntSerializable
 	{
@@ -149,7 +149,7 @@ namespace GameLovers
 			return new Vector3Int(v.x, v.y, v.z);
 		}
 	}
-	
+
 	[Serializable]
 	public struct Vector2IntSerializable
 	{
