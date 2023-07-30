@@ -18,6 +18,7 @@ namespace GameLovers
 	/// <author>Bruno Coimbra, https://github.com/coimbrastudios/framework/blob/master/Coimbra/Utilities/</author>
 	public static class ObjectExtensions
 	{
+		private static readonly Dictionary<Type, string> Cache = new();
 		private const string PersistentSceneName = "DontDestroyOnLoad";
 
 		/// <summary>
