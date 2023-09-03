@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
+#nullable enable
 // ReSharper disable once CheckNamespace
 
 namespace GameLovers
@@ -44,9 +45,7 @@ namespace GameLovers
 
 			if (Application.isPlaying)
 			{
-#pragma warning disable COIMBRA0008
 				Object.Destroy(gameObject);
-#pragma warning restore COIMBRA0008
 			}
 			else
 			{
@@ -125,9 +124,7 @@ namespace GameLovers
 
 			if (Application.isPlaying)
 			{
-#pragma warning disable COIMBRA0008
 				Object.Destroy(o);
-#pragma warning restore COIMBRA0008
 			}
 			else
 			{
@@ -145,7 +142,9 @@ namespace GameLovers
 		{
 			if (o is Object obj)
 			{
+#pragma warning disable CS8603 // Possible null reference return.
 				return obj != null ? o : default;
+#pragma warning restore CS8603 // Possible null reference return.
 			}
 
 			return o;
