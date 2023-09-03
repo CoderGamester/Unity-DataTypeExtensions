@@ -5,13 +5,39 @@ using UnityEngine;
 
 namespace GameLovers
 {
+	/// <summary>
+	/// This object contains a pair of data.
+	/// Use <see cref="StructPair{TKey, TValue}"/> if the container data is value types.
+	/// 
+	/// Use this data structure if the container data is reference types, in order to 
+	/// improve memory usage performance.
+	/// </summary>
 	[Serializable]
-	public struct Pair<TKey, TValue>
+	public class Pair<TKey, TValue>
 	{
 		public TKey Key;
 		public TValue Value;
 
 		public Pair(TKey key, TValue value)
+		{
+			Key = key;
+			Value = value;
+		}
+
+		public override string ToString()
+		{
+			return $"[{Key.ToString()},{Value.ToString()}]";
+		}
+	}
+	[Serializable]
+	public struct StructPair<TKey, TValue>
+		where TKey : struct
+		where TValue : struct
+	{
+		public TKey Key;
+		public TValue Value;
+
+		public StructPair(TKey key, TValue value)
 		{
 			Key = key;
 			Value = value;
