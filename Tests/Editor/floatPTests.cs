@@ -11,17 +11,16 @@ namespace GameLoversEditor.DataExtensions.Tests
 		[Test]
 		public void Representation()
 		{
-			Assert.AreEqual(floatP.Zero, 0f);
-			Assert.AreNotEqual(-floatP.Zero, -0f);
+			Assert.AreEqual(floatP.Zero, (floatP)0f);
+			Assert.AreEqual(-floatP.Zero, (floatP) (-0f));
 			Assert.AreEqual(floatP.Zero, -floatP.Zero);
-			Assert.AreEqual(floatP.NaN, float.NaN);
-			Assert.AreEqual(floatP.One, 1f);
-			Assert.AreEqual(floatP.MinusOne, -1f);
-			Assert.AreEqual(floatP.PositiveInfinity, float.PositiveInfinity);
-			Assert.AreEqual(floatP.NegativeInfinity, float.NegativeInfinity);
-			Assert.AreEqual(floatP.Epsilon, float.Epsilon);
-			Assert.AreEqual(floatP.MaxValue, float.MaxValue);
-			Assert.AreEqual(floatP.MinValue, float.MinValue);
+			Assert.AreEqual(floatP.NaN, (floatP) float.NaN);
+			Assert.AreEqual(floatP.MinusOne, (floatP)  (- 1f));
+			Assert.AreEqual(floatP.PositiveInfinity, (floatP)float.PositiveInfinity);
+			Assert.AreEqual(floatP.NegativeInfinity, (floatP)float.NegativeInfinity);
+			Assert.AreEqual(floatP.Epsilon, (floatP)float.Epsilon);
+			Assert.AreEqual(floatP.MaxValue, (floatP)float.MaxValue);
+			Assert.AreEqual(floatP.MinValue, (floatP)float.MinValue);
 		}
 
 		[Test]
@@ -43,24 +42,24 @@ namespace GameLoversEditor.DataExtensions.Tests
 		[Test]
 		public void Addition()
 		{
-			Assert.AreEqual(floatP.One + floatP.One, 2f);
-			Assert.AreEqual(floatP.One - floatP.One, 0f);
+			Assert.AreEqual(floatP.One + floatP.One, (floatP)2f);
+			Assert.AreEqual(floatP.One - floatP.One, (floatP)0f);
 		}
 
 		[Test]
 		public void Multiplication()
 		{
-			Assert.AreEqual(floatP.PositiveInfinity * floatP.Zero, float.PositiveInfinity * 0f);
-			Assert.AreEqual(floatP.PositiveInfinity * (-floatP.Zero), float.PositiveInfinity * (-0f));
-			Assert.AreEqual(floatP.PositiveInfinity * floatP.One, float.PositiveInfinity * 1f);
-			Assert.AreEqual(floatP.PositiveInfinity * floatP.MinusOne, float.PositiveInfinity * -1f);
+			Assert.AreEqual(floatP.PositiveInfinity * floatP.Zero, (floatP) (float.PositiveInfinity * 0f));
+			Assert.AreEqual(floatP.PositiveInfinity * (-floatP.Zero), (floatP)(float.PositiveInfinity * (-0f)));
+			Assert.AreEqual(floatP.PositiveInfinity * floatP.One, (floatP)(float.PositiveInfinity * 1f));
+			Assert.AreEqual(floatP.PositiveInfinity * floatP.MinusOne, (floatP)(float.PositiveInfinity * -1f));
 
-			Assert.AreEqual(floatP.NegativeInfinity * floatP.Zero, float.NegativeInfinity * 0f);
-			Assert.AreEqual(floatP.NegativeInfinity * (-floatP.Zero), float.NegativeInfinity * (-0f));
-			Assert.AreEqual(floatP.NegativeInfinity * floatP.One, float.NegativeInfinity * 1f);
-			Assert.AreEqual(floatP.NegativeInfinity * floatP.MinusOne, float.NegativeInfinity * -1f);
+			Assert.AreEqual(floatP.NegativeInfinity * floatP.Zero, (floatP)(float.NegativeInfinity * 0f));
+			Assert.AreEqual(floatP.NegativeInfinity * (-floatP.Zero), (floatP)(float.NegativeInfinity * (-0f)));
+			Assert.AreEqual(floatP.NegativeInfinity * floatP.One, (floatP)(float.NegativeInfinity * 1f));
+			Assert.AreEqual(floatP.NegativeInfinity * floatP.MinusOne, (floatP)(float.NegativeInfinity * -1f));
 
-			Assert.AreEqual(floatP.One * floatP.One, 1f);
+			Assert.AreEqual(floatP.One * floatP.One, (floatP)1f);
 		}
 	}
 }

@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using GameLovers;
 using NSubstitute;
 using NUnit.Framework;
+using UnityEngine;
 
 // ReSharper disable once CheckNamespace
 
@@ -11,8 +13,6 @@ namespace GameLoversEditor.DataExtensions.Tests
 	public class ObservableDictionaryTest
 	{
 		private const int _key = 0;
-		private const int _previousValue = 5;
-		private const int _newValue = 10;
 
 		/// <summary>
 		/// Mocking interface to check method calls received
@@ -22,8 +22,7 @@ namespace GameLoversEditor.DataExtensions.Tests
 			void Call(TKey key, TValue previousValue, TValue newValue, ObservableUpdateType updateType);
 		}
 
-		private ObservableDictionary<int, int> _observableDictionary;
-		private ObservableResolverDictionary<int, int> _observableResolverDictionary;
+		private ObservableDictionary<int, int> _dictionary;
 		private IDictionary<int, int> _mockDictionary;
 		private IMockCaller<int, int> _caller;
 
@@ -31,24 +30,99 @@ namespace GameLoversEditor.DataExtensions.Tests
 		public void Init()
 		{
 			_caller = Substitute.For<IMockCaller<int, int>>();
-			_mockDictionary = Substitute.For<IDictionary<int, int>>();
-			_observableDictionary = new ObservableDictionary<int, int>(_mockDictionary);
-			_observableResolverDictionary = new ObservableResolverDictionary<int, int>(() => _mockDictionary);
-
-			_mockDictionary.TryGetValue(_key, out _).Returns(callInfo =>
-			{
-				callInfo[1] = _mockDictionary[_key];
-				return true;
-			});
+			_mockDictionary = new Dictionary<int, int>();
+			_dictionary = new ObservableDictionary<int, int>(_mockDictionary);
 		}
 
 		[Test]
-		public void ValueCheck()
+		public void TryGetValue_ReturnsFalse_WhenKeyDoesNotExist()
 		{
-			_mockDictionary[_key].Returns(_previousValue);
+			bool result = _dictionary.TryGetValue(1, out int value);
 
-			Assert.AreEqual(_previousValue, _observableDictionary[_key]);
-			Assert.AreEqual(_previousValue, _observableResolverDictionary[_key]);
+			Assert.IsFalse(result);
+		}
+
+		[Test]
+		public void TryGetValue_ReturnsTrue_WhenKeyExists()
+		{
+			_dictionary.Add(1, 100);
+
+			bool result = _dictionary.TryGetValue(1, out int value);
+
+			Assert.IsTrue(result);
+			Assert.AreEqual(100, value);
+		}
+
+		[Test]
+		public void ContainsKey_ReturnsFalse_WhenKeyDoesNotExist()
+		{
+			Assert.IsFalse(_dictionary.ContainsKey(1));
+		}
+
+		[Test]
+		public void ContainsKey_ReturnsTrue_WhenKeyExists()
+		{
+			_dictionary.Add(1, 100);
+
+			Assert.IsTrue(_dictionary.ContainsKey(1));
+		}
+
+		[Test]
+		public void Indexer_ReturnsValue_WhenKeyExists()
+		{
+			_dictionary.Add(1, 100);
+
+			Assert.AreEqual(100, _dictionary[1]);
+		}
+
+		[Test]
+		public void Indexer_SetsValue_WhenKeyExists()
+		{
+			_dictionary.Add(1, 100);
+			_dictionary[1] = 200;
+
+			Assert.AreEqual(200, _dictionary[1]);
+		}
+
+		[Test]
+		public void Add_AddsKeyValuePair_WhenKeyDoesNotExist()
+		{
+			_dictionary.Add(1, 100);
+
+			Assert.AreEqual(100, _dictionary[1]);
+		}
+
+		[Test]
+		public void Add_ThrowsException_WhenKeyAlreadyExists()
+		{
+			_dictionary.Add(1, 100);
+
+			Assert.Throws<ArgumentException>(() => _dictionary.Add(1, 200));
+		}
+
+		[Test]
+		public void Remove_RemovesKeyValuePair_WhenKeyExists()
+		{
+			_dictionary.Add(1, 100);
+
+			Assert.IsTrue(_dictionary.Remove(1));
+			Assert.AreEqual(0, _dictionary.Count);
+		}
+
+		[Test]
+		public void Remove_ReturnsFalse_WhenKeyDoesNotExist()
+		{
+			Assert.IsFalse(_dictionary.Remove(1));
+		}
+
+		[Test]
+		public void Clear_RemovesAllKeyValuePairs()
+		{
+			_dictionary.Add(1, 100);
+			_dictionary.Add(2, 200);
+			_dictionary.Clear();
+
+			Assert.AreEqual(0, _dictionary.Count);
 		}
 
 		[Test]
@@ -56,58 +130,65 @@ namespace GameLoversEditor.DataExtensions.Tests
 		{
 			const int valueCheck1 = 5;
 			const int valueCheck2 = 6;
-			const int valueCheck3 = 7;
 
-			_mockDictionary[_key] = valueCheck1;
+			_mockDictionary.Add(_key, valueCheck1);
+			_dictionary[_key] = valueCheck2;
 
-			Assert.AreEqual(valueCheck1, _observableDictionary[_key]);
-			Assert.AreEqual(valueCheck1, _observableResolverDictionary[_key]);
-
-			_observableDictionary[_key] = valueCheck2;
-
-			Assert.AreEqual(valueCheck2, _observableDictionary[_key]);
-			Assert.AreEqual(valueCheck2, _observableResolverDictionary[_key]);
-
-			_observableResolverDictionary[_key] = valueCheck3;
-
-			Assert.AreEqual(valueCheck3, _observableDictionary[_key]);
-			Assert.AreEqual(valueCheck3, _observableResolverDictionary[_key]);
+			Assert.AreNotEqual(valueCheck1, _mockDictionary[_key]);
+			Assert.AreEqual(valueCheck2, _dictionary[_key]);
 		}
 
 		[Test]
 		public void ObserveCheck()
 		{
-			_observableDictionary.Observe(_key, _caller.Call);
-			_observableDictionary.Observe(_caller.Call);
-			_observableResolverDictionary.Observe(_key, _caller.Call);
-			_observableResolverDictionary.Observe(_caller.Call);
+			var startValue = 0;
+			var newValue = 1;
 
-			// _caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
+			_dictionary.Observe(_key, _caller.Call);
+			_dictionary.Observe(_caller.Call);
 
-			_observableDictionary.Add(_key, _previousValue);
-			_observableResolverDictionary.Add(_key, _previousValue);
+			_dictionary.Add(_key, startValue);
 
-			_mockDictionary[_key].Returns(_previousValue);
+			_dictionary[_key] = newValue;
 
-			_observableDictionary[_key] = _newValue;
+			_dictionary.Remove(_key);
 
-			_mockDictionary[_key].Returns(_previousValue);
-
-			_observableResolverDictionary[_key] = _newValue;
-
-			_observableDictionary.Remove(_key);
-			_observableResolverDictionary.Remove(_key);
-
-			_caller.Received(4).Call(_key, 0, _previousValue, ObservableUpdateType.Added);
-			_caller.Received(4).Call(_key, _previousValue, _newValue, ObservableUpdateType.Updated);
-			_caller.Received(4).Call(_key, _newValue, 0, ObservableUpdateType.Removed);
+			_caller.Received().Call(_key, 0, startValue, ObservableUpdateType.Added);
+			_caller.Received().Call(_key, startValue, newValue, ObservableUpdateType.Updated);
+			_caller.Received().Call(_key, newValue, 0, ObservableUpdateType.Removed);
 		}
 
 		[Test]
 		public void InvokeObserveCheck()
 		{
-			_observableDictionary.InvokeObserve(_key, _caller.Call);
-			_observableResolverDictionary.InvokeObserve(_key, _caller.Call);
+			_dictionary.Add(_key, 0);
+			_dictionary.InvokeObserve(_key, _caller.Call);
+
+			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), ObservableUpdateType.Added);
+			_caller.Received().Call(_key, 0, 0, ObservableUpdateType.Updated);
+			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), ObservableUpdateType.Removed);
+		}
+
+		[Test]
+		public void InvokeUpdate_MissingKey_ThrowsException()
+		{
+			Assert.Throws<KeyNotFoundException>(() => _dictionary.InvokeUpdate(_key));
+		}
+
+		[Test]
+		public void InvokeObserve_MissingKey_ThrowsException()
+		{
+			Assert.Throws<KeyNotFoundException>(() => _dictionary.InvokeObserve(_key, _caller.Call));
+		}
+
+		[Test]
+		public void InvokeUpdateCheck()
+		{
+			_dictionary.Add(_key, 0);
+			_dictionary.Observe(_key, _caller.Call);
+			_dictionary.Observe(_caller.Call);
+
+			_dictionary.InvokeUpdate(_key);
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), ObservableUpdateType.Added);
 			_caller.Received(2).Call(_key, 0, 0, ObservableUpdateType.Updated);
@@ -115,26 +196,10 @@ namespace GameLoversEditor.DataExtensions.Tests
 		}
 
 		[Test]
-		public void InvokeCheck()
+		public void InvokeUpdate_NotObserving_DoesNothing()
 		{
-			_observableDictionary.Observe(_key, _caller.Call);
-			_observableDictionary.Observe(_caller.Call);
-			_observableResolverDictionary.Observe(_key, _caller.Call);
-			_observableResolverDictionary.Observe(_caller.Call);
-
-			_observableDictionary.InvokeUpdate(_key);
-			_observableResolverDictionary.InvokeUpdate(_key);
-
-			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), ObservableUpdateType.Added);
-			_caller.Received(4).Call(_key, 0, 0, ObservableUpdateType.Updated);
-			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), ObservableUpdateType.Removed);
-		}
-
-		[Test]
-		public void InvokeCheck_NotObserving_DoesNothing()
-		{
-			_observableDictionary.InvokeUpdate(_key);
-			_observableResolverDictionary.InvokeUpdate(_key);
+			_dictionary.Add(_key, 0);
+			_dictionary.InvokeUpdate(_key);
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
 		}
@@ -142,17 +207,12 @@ namespace GameLoversEditor.DataExtensions.Tests
 		[Test]
 		public void StopObserveCheck()
 		{
-			_observableDictionary.Observe(_caller.Call);
-			_observableResolverDictionary.Observe(_caller.Call);
-			_observableDictionary.StopObserving(_caller.Call);
-			_observableResolverDictionary.StopObserving(_caller.Call);
+			_dictionary.Observe(_caller.Call);
+			_dictionary.StopObserving(_caller.Call);
 
-			_observableDictionary.Add(_key, _previousValue);
-			_observableResolverDictionary.Add(_key, _previousValue);
-			_observableDictionary[_key] = _previousValue;
-			_observableResolverDictionary[_key] = _previousValue;
-			_observableDictionary.Remove(_key);
-			_observableResolverDictionary.Remove(_key);
+			_dictionary.Add(_key, 0);
+			_dictionary[_key] = 0;
+			_dictionary.Remove(_key);
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
 		}
@@ -160,17 +220,12 @@ namespace GameLoversEditor.DataExtensions.Tests
 		[Test]
 		public void StopObserve_KeyCheck()
 		{
-			_observableDictionary.Observe(_key, _caller.Call);
-			_observableResolverDictionary.Observe(_key, _caller.Call);
-			_observableDictionary.StopObserving(_key);
-			_observableResolverDictionary.StopObserving(_key);
+			_dictionary.Observe(_key, _caller.Call);
+			_dictionary.StopObserving(_key);
 
-			_observableDictionary.Add(_key, _previousValue);
-			_observableResolverDictionary.Add(_key, _previousValue);
-			_observableDictionary[_key] = _previousValue;
-			_observableResolverDictionary[_key] = _previousValue;
-			_observableDictionary.Remove(_key);
-			_observableResolverDictionary.Remove(_key);
+			_dictionary.Add(_key, 0);
+			_dictionary[_key] = 0;
+			_dictionary.Remove(_key);
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
 		}
@@ -178,17 +233,12 @@ namespace GameLoversEditor.DataExtensions.Tests
 		[Test]
 		public void StopObservingAllCheck()
 		{
-			_observableDictionary.Observe(_caller.Call);
-			_observableResolverDictionary.Observe(_caller.Call);
-			_observableDictionary.StopObservingAll(_caller);
-			_observableResolverDictionary.StopObservingAll(_caller);
+			_dictionary.Observe(_caller.Call);
+			_dictionary.StopObservingAll(_caller);
 
-			_observableDictionary.Add(_key, _previousValue);
-			_observableResolverDictionary.Add(_key, _previousValue);
-			_observableDictionary[_key] = _previousValue;
-			_observableResolverDictionary[_key] = _previousValue;
-			_observableDictionary.Remove(_key);
-			_observableResolverDictionary.Remove(_key);
+			_dictionary.Add(_key, 0);
+			_dictionary[_key] = 0;
+			_dictionary.Remove(_key);
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
 		}
@@ -196,19 +246,13 @@ namespace GameLoversEditor.DataExtensions.Tests
 		[Test]
 		public void StopObservingAll_MultipleCalls_Check()
 		{
-			_observableDictionary.Observe(_caller.Call);
-			_observableDictionary.Observe(_caller.Call);
-			_observableResolverDictionary.Observe(_caller.Call);
-			_observableResolverDictionary.Observe(_caller.Call);
-			_observableDictionary.StopObservingAll(_caller);
-			_observableResolverDictionary.StopObservingAll(_caller);
+			_dictionary.Observe(_caller.Call);
+			_dictionary.Observe(_caller.Call);
+			_dictionary.StopObservingAll(_caller);
 
-			_observableDictionary.Add(_key, _previousValue);
-			_observableResolverDictionary.Add(_key, _previousValue);
-			_observableDictionary[_key] = _previousValue;
-			_observableResolverDictionary[_key] = _previousValue;
-			_observableDictionary.Remove(_key);
-			_observableResolverDictionary.Remove(_key);
+			_dictionary.Add(_key, 0);
+			_dictionary[_key] = 0;
+			_dictionary.Remove(_key);
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
 		}
@@ -216,17 +260,12 @@ namespace GameLoversEditor.DataExtensions.Tests
 		[Test]
 		public void StopObservingAll_Everything_Check()
 		{
-			_observableDictionary.Observe(_caller.Call);
-			_observableResolverDictionary.Observe(_caller.Call);
-			_observableDictionary.StopObservingAll();
-			_observableResolverDictionary.StopObservingAll();
+			_dictionary.Observe(_caller.Call);
+			_dictionary.StopObservingAll();
 
-			_observableDictionary.Add(_key, _previousValue);
-			_observableResolverDictionary.Add(_key, _previousValue);
-			_observableDictionary[_key] = _previousValue;
-			_observableResolverDictionary[_key] = _previousValue;
-			_observableDictionary.Remove(_key);
-			_observableResolverDictionary.Remove(_key);
+			_dictionary.Add(_key, 0);
+			_dictionary[_key] = 0;
+			_dictionary.Remove(_key);
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
 		}
@@ -234,15 +273,11 @@ namespace GameLoversEditor.DataExtensions.Tests
 		[Test]
 		public void StopObservingAll_NotObserving_DoesNothing()
 		{
-			_observableDictionary.StopObservingAll(_caller);
-			_observableResolverDictionary.StopObservingAll(_caller);
+			_dictionary.StopObservingAll(_caller);
 
-			_observableDictionary.Add(_key, _previousValue);
-			_observableResolverDictionary.Add(_key, _previousValue);
-			_observableDictionary[_key] = _previousValue;
-			_observableResolverDictionary[_key] = _previousValue;
-			_observableDictionary.Remove(_key);
-			_observableResolverDictionary.Remove(_key);
+			_dictionary.Add(_key, 0);
+			_dictionary[_key] = 0;
+			_dictionary.Remove(_key);
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
 		}
