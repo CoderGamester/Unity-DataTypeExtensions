@@ -453,7 +453,9 @@ namespace GameLovers
 		/// <inheritdoc />
 		public override bool Remove(TKey key)
 		{
-			var pair = _toOrignResolver(key, Dictionary[key]);
+			if(!Dictionary.TryGetValue(key, out var value)) return false;
+
+			var pair = _toOrignResolver(key, value);
 
 			_dictionary.Remove(pair.Key);
 
@@ -479,7 +481,9 @@ namespace GameLovers
 		/// <inheritdoc />
 		public bool RemoveOrigin(TKeyOrigin key)
 		{
-			var convertPair = _fromOrignResolver(new KeyValuePair<TKeyOrigin, TValueOrigin>(key, OriginDictionary[key]));
+			if (!_dictionary.TryGetValue(key, out var value)) return false;
+
+			var convertPair = _fromOrignResolver(new KeyValuePair<TKeyOrigin, TValueOrigin>(key, value));
 
 			_dictionary.Remove(key);
 			return base.Remove(convertPair.Key);
