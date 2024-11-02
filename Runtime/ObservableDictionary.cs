@@ -9,6 +9,16 @@ using UnityEngine.UIElements;
 
 namespace GameLovers
 {
+	public enum ObservableUpdateFlag
+	{
+		// Updates all subsribers that didn't specify the key index
+		UpdateOnly,
+		// Updates only for subscripers that added their key index
+		KeyUpdateOnly,
+		// Updates all types of subscribers [This has a high performance cost]
+		Both
+	}
+
 	/// <summary>
 	/// A simple dictionary with the possibility to observe changes to it's elements defined <see cref="ObservableUpdateType"/> rules
 	/// </summary>
@@ -18,6 +28,11 @@ namespace GameLovers
 		/// Requests the element count of this dictionary
 		/// </summary>
 		int Count { get; }
+
+		/// <summary>
+		/// Defines the configuration for the observable update done when updating elements in this dictionary
+		/// </summary>
+		ObservableUpdateFlag ObservableUpdateFlag { get; set; }
 	}
 
 	/// <inheritdoc cref="IObservableDictionary"/>
@@ -45,23 +60,35 @@ namespace GameLovers
 		/// <summary>
 		/// Observes to this dictionary changes with the given <paramref name="onUpdate"/>
 		/// </summary>
+		/// <remarks>
+		/// It needs the <see cref="this.ObservableUpdateFlag"/> to NOT be set as <see cref="ObservableUpdateFlag.KeyUpdateOnly"/>
+		/// </remarks>
 		void Observe(Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate);
 
 		/// <summary>
 		/// Observes to this dictionary changes with the given <paramref name="onUpdate"/> when the given <paramref name="key"/>
 		/// data changes
 		/// </summary>
+		/// <remarks>
+		/// It needs the <see cref="this.ObservableUpdateFlag"/> to NOT be set as <see cref="ObservableUpdateFlag.UpdateOnly"/>
+		/// </remarks>
 		void Observe(TKey key, Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate);
 
 		/// <inheritdoc cref="Observe(TKey,System.Action{TKey,TValue,TValue,FirstLight.ObservableUpdateType})" />
 		/// <remarks>
 		/// It invokes the given <paramref name="onUpdate"/> method before starting to observe to this dictionary
 		/// </remarks>
+		/// <remarks>
+		/// It needs the <see cref="this.ObservableUpdateFlag"/> to NOT be set as <see cref="ObservableUpdateFlag.UpdateOnly"/>
+		/// </remarks>
 		void InvokeObserve(TKey key, Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate);
 
 		/// <summary>
 		/// Stops observing this dictionary with the given <paramref name="onUpdate"/> of any data changes
 		/// </summary>
+		/// <remarks>
+		/// It needs the <see cref="this.ObservableUpdateFlag"/> to NOT be set as <see cref="ObservableUpdateFlag.KeyUpdateOnly"/>
+		/// </remarks>
 		void StopObserving(Action<TKey, TValue, TValue, ObservableUpdateType> onUpdate);
 
 		/// <summary>
@@ -173,15 +200,18 @@ namespace GameLovers
 		/// <inheritdoc />
 		public int Count => Dictionary.Count;
 		/// <inheritdoc />
+		public ObservableUpdateFlag ObservableUpdateFlag { get; set; }
+		/// <inheritdoc />
 		public ReadOnlyDictionary<TKey, TValue> ReadOnlyDictionary => new ReadOnlyDictionary<TKey, TValue>(Dictionary);
 
 		protected virtual IDictionary<TKey, TValue> Dictionary { get; }
 
-		protected ObservableDictionary() { }
+		private ObservableDictionary() { }
 
 		public ObservableDictionary(IDictionary<TKey, TValue> dictionary)
 		{
 			Dictionary = dictionary;
+			ObservableUpdateFlag = ObservableUpdateFlag.KeyUpdateOnly;
 		}
 
 		/// <inheritdoc cref="Dictionary{TKey,TValue}.this" />
@@ -227,7 +257,7 @@ namespace GameLovers
 		{
 			Dictionary.Add(key, value);
 
-			if (_keyUpdateActions.TryGetValue(key, out var actions))
+			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly && _keyUpdateActions.TryGetValue(key, out var actions))
 			{
 				for (var i = 0; i < actions.Count; i++)
 				{
@@ -235,9 +265,12 @@ namespace GameLovers
 				}
 			}
 
-			for (var i = 0; i < _updateActions.Count; i++)
+			if (ObservableUpdateFlag != ObservableUpdateFlag.KeyUpdateOnly)
 			{
-				_updateActions[i](key, default, value, ObservableUpdateType.Added);
+				for (var i = 0; i < _updateActions.Count; i++)
+				{
+					_updateActions[i](key, default, value, ObservableUpdateType.Added);
+				}
 			}
 		}
 
@@ -251,17 +284,19 @@ namespace GameLovers
 
 			Dictionary.Remove(key);
 
-			if (_keyUpdateActions.TryGetValue(key, out var actions))
+			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly && _keyUpdateActions.TryGetValue(key, out var actions))
 			{
 				for (var i = 0; i < actions.Count; i++)
 				{
 					actions[i](key, value, default, ObservableUpdateType.Removed);
 				}
 			}
-
-			for (var i = 0; i < _updateActions.Count; i++)
+			if (ObservableUpdateFlag != ObservableUpdateFlag.KeyUpdateOnly)
 			{
-				_updateActions[i](key, value, default, ObservableUpdateType.Removed);
+				for (var i = 0; i < _updateActions.Count; i++)
+				{
+					_updateActions[i](key, value, default, ObservableUpdateType.Removed);
+				}
 			}
 
 			return true;
@@ -274,11 +309,25 @@ namespace GameLovers
 
 			Dictionary.Clear();
 
-			for (var i = 0; i < _updateActions.Count; i++)
+			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly)
+			{
+				foreach (var data in _keyUpdateActions)
+				{
+					for (var i = 0; i < data.Value.Count; i++)
+					{
+						data.Value[i](data.Key, dictionary[data.Key], default, ObservableUpdateType.Removed);
+					}
+				}
+			}
+
+			if (ObservableUpdateFlag != ObservableUpdateFlag.KeyUpdateOnly)
 			{
 				foreach (var data in dictionary)
 				{
-					_updateActions[i](data.Key, data.Value, default, ObservableUpdateType.Removed);
+					for (var i = 0; i < _updateActions.Count; i++)
+					{
+						_updateActions[i](data.Key, data.Value, default, ObservableUpdateType.Removed);
+					}
 				}
 			}
 		}
@@ -380,7 +429,7 @@ namespace GameLovers
 		{
 			var value = Dictionary[key];
 
-			if (_keyUpdateActions.TryGetValue(key, out var actions))
+			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly && _keyUpdateActions.TryGetValue(key, out var actions))
 			{
 				for (var i = 0; i < actions.Count; i++)
 				{
@@ -388,9 +437,12 @@ namespace GameLovers
 				}
 			}
 
-			for (var i = 0; i < _updateActions.Count; i++)
+			if (ObservableUpdateFlag != ObservableUpdateFlag.KeyUpdateOnly)
 			{
-				_updateActions[i](key, previousValue, value, ObservableUpdateType.Updated);
+				for (var i = 0; i < _updateActions.Count; i++)
+				{
+					_updateActions[i](key, previousValue, value, ObservableUpdateType.Updated);
+				}
 			}
 		}
 	}
