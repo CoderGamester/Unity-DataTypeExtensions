@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,16 +8,6 @@ using UnityEngine.UIElements;
 
 namespace GameLovers
 {
-	public enum ObservableUpdateFlag
-	{
-		// Updates all subsribers that didn't specify the key index
-		UpdateOnly,
-		// Updates only for subscripers that added their key index
-		KeyUpdateOnly,
-		// Updates all types of subscribers [This has a high performance cost]
-		Both
-	}
-
 	/// <summary>
 	/// A simple dictionary with the possibility to observe changes to it's elements defined <see cref="ObservableUpdateType"/> rules
 	/// </summary>

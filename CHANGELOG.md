@@ -4,6 +4,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2024-11-02
+
+**Fix**:
+- Fixed the compilation issues of *ObservableDictionary*
+
 ## [0.6.2] - 2024-11-02
 
 - Added the *ObservableUpdateFlag* to help performance when updating subscribers to the *ObservableDictionary*. By default is set *ObservableUpdateFlag.KeyUpdateOnly*
