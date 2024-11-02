@@ -2,7 +2,7 @@
   "name": "com.gamelovers.dataextensions",
   "displayName": "Unity Data Type Extensions",
   "author": "Miguel Tomas",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "unity": "2022.3",
   "license": "MIT",
   "description": "This package extends various sets of data types to be used in any type of data containers or persistent serializable data",
