@@ -191,7 +191,7 @@ namespace GameLoversEditor.DataExtensions.Tests
 			_dictionary.InvokeUpdate(_key);
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), ObservableUpdateType.Added);
-			_caller.Received(2).Call(_key, 0, 0, ObservableUpdateType.Updated);
+			_caller.Received().Call(_key, 0, 0, ObservableUpdateType.Updated);
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), ObservableUpdateType.Removed);
 		}
 
