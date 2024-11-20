@@ -232,9 +232,14 @@ namespace GameLovers
 
 			List.RemoveAt(index);
 
-			for (var i = 0; i < _updateActions.Count; i++)
+			for (var i = _updateActions.Count - 1; i > -1; i--)
 			{
-				_updateActions[i](index, data, default, ObservableUpdateType.Removed);
+				var action = _updateActions[i];
+
+				action(index, data, default, ObservableUpdateType.Removed);
+
+				// Shift the index if an action was unsubscribed
+				i = AdjustIndex(i, action);
 			}
 		}
 
@@ -306,6 +311,24 @@ namespace GameLovers
 			{
 				_updateActions[i](index, previousValue, data, ObservableUpdateType.Updated);
 			}
+		}
+
+		private int AdjustIndex(int index, Action<int, T, T, ObservableUpdateType> action)
+		{
+			if (index < _updateActions.Count && _updateActions[index] == action)
+			{
+				return index;
+			}
+
+			for (var i = index - 1; i > -1; i--)
+			{
+				if (_updateActions[index] == action)
+				{
+					return i;
+				}
+			}
+
+			return index + 1;
 		}
 	}
 

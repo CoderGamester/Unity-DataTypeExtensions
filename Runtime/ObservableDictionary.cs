@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using UnityEngine.UIElements;
 
 // ReSharper disable once CheckNamespace
 
@@ -276,18 +275,26 @@ namespace GameLovers
 
 			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly && _keyUpdateActions.TryGetValue(key, out var actions))
 			{
-				var listCopy = actions.ToList();
-				for (var i = 0; i < listCopy.Count; i++)
+				for (var i = actions.Count - 1; i > -1; i--)
 				{
-					listCopy[i](key, value, default, ObservableUpdateType.Removed);
+					var action = actions[i];
+
+					action(key, value, default, ObservableUpdateType.Removed);
+
+					// Shift the index if an action was unsubscribed
+					i = AdjustIndex(i, action, actions);
 				}
 			}
 			if (ObservableUpdateFlag != ObservableUpdateFlag.KeyUpdateOnly)
 			{
-				var listCopy = _updateActions.ToList();
-				for (var i = 0; i < listCopy.Count; i++)
+				for (var i = _updateActions.Count - 1; i > -1; i--)
 				{
-					listCopy[i](key, value, default, ObservableUpdateType.Removed);
+					var action = _updateActions[i];
+
+					action(key, value, default, ObservableUpdateType.Removed);
+
+					// Shift the index if an action was unsubscribed
+					i = AdjustIndex(i, action, _updateActions);
 				}
 			}
 
@@ -441,6 +448,25 @@ namespace GameLovers
 					_updateActions[i](key, previousValue, value, ObservableUpdateType.Updated);
 				}
 			}
+		}
+
+		private int AdjustIndex(int index, Action<TKey, TValue, TValue, ObservableUpdateType> action,
+			IList<Action<TKey, TValue, TValue, ObservableUpdateType>> list)
+		{
+			if (index < list.Count && list[index] == action)
+			{
+				return index;
+			}
+
+			for (var i = index - 1; i > -1; i--)
+			{
+				if (list[index] == action)
+				{
+					return i;
+				}
+			}
+
+			return index + 1;
 		}
 	}
 
