@@ -322,7 +322,7 @@ namespace GameLovers
 
 			for (var i = index - 1; i > -1; i--)
 			{
-				if (_updateActions[index] == action)
+				if (_updateActions[i] == action)
 				{
 					return i;
 				}

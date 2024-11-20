@@ -460,7 +460,7 @@ namespace GameLovers
 
 			for (var i = index - 1; i > -1; i--)
 			{
-				if (list[index] == action)
+				if (list[i] == action)
 				{
 					return i;
 				}
