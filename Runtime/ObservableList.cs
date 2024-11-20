@@ -241,17 +241,18 @@ namespace GameLovers
 		/// <inheritdoc />
 		public virtual void Clear()
 		{
-			var list = new List<T>(List);
+			// Create a copy in case that one of the callbacks modifies the list (Ex: removing a subscriber)
+			var copy = _updateActions.ToList();
 
-			List.Clear();
-
-			for (var i = 0; i < _updateActions.Count; i++)
+			for (var i = copy.Count - 1; i > -1; i--)
 			{
-				for (var j = 0; j < list.Count; j++)
+				for (var j = 0; j < List.Count; j++)
 				{
-					_updateActions[i](j, list[j], default, ObservableUpdateType.Removed);
+					copy[i](j, List[j], default, ObservableUpdateType.Removed);
 				}
 			}
+
+			List.Clear();
 		}
 
 		/// <inheritdoc />

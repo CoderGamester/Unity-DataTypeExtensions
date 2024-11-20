@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using UnityEngine.UIElements;
 
 // ReSharper disable once CheckNamespace
@@ -275,16 +276,18 @@ namespace GameLovers
 
 			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly && _keyUpdateActions.TryGetValue(key, out var actions))
 			{
-				for (var i = 0; i < actions.Count; i++)
+				var listCopy = actions.ToList();
+				for (var i = 0; i < listCopy.Count; i++)
 				{
-					actions[i](key, value, default, ObservableUpdateType.Removed);
+					listCopy[i](key, value, default, ObservableUpdateType.Removed);
 				}
 			}
 			if (ObservableUpdateFlag != ObservableUpdateFlag.KeyUpdateOnly)
 			{
-				for (var i = 0; i < _updateActions.Count; i++)
+				var listCopy = _updateActions.ToList();
+				for (var i = 0; i < listCopy.Count; i++)
 				{
-					_updateActions[i](key, value, default, ObservableUpdateType.Removed);
+					listCopy[i](key, value, default, ObservableUpdateType.Removed);
 				}
 			}
 
@@ -294,31 +297,34 @@ namespace GameLovers
 		/// <inheritdoc />
 		public virtual void Clear()
 		{
-			var dictionary = new Dictionary<TKey, TValue>(Dictionary);
-
-			Dictionary.Clear();
-
 			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly)
 			{
-				foreach (var data in _keyUpdateActions)
+				// Create a copy in case that one of the callbacks modifies the list (Ex: removing a subscriber)
+				var copy = new Dictionary<TKey, IList<Action<TKey, TValue, TValue, ObservableUpdateType>>>(_keyUpdateActions);
+
+				foreach (var data in copy)
 				{
-					for (var i = 0; i < data.Value.Count; i++)
+					var listCopy = data.Value.ToList();
+					for (var i = 0; i < listCopy.Count; i++)
 					{
-						data.Value[i](data.Key, dictionary[data.Key], default, ObservableUpdateType.Removed);
+						listCopy[i](data.Key, Dictionary[data.Key], default, ObservableUpdateType.Removed);
 					}
 				}
 			}
 
 			if (ObservableUpdateFlag != ObservableUpdateFlag.KeyUpdateOnly)
 			{
-				foreach (var data in dictionary)
+				foreach (var data in Dictionary)
 				{
-					for (var i = 0; i < _updateActions.Count; i++)
+					var listCopy = _updateActions.ToList();
+					for (var i = 0; i < listCopy.Count; i++)
 					{
-						_updateActions[i](data.Key, data.Value, default, ObservableUpdateType.Removed);
+						listCopy[i](data.Key, data.Value, default, ObservableUpdateType.Removed);
 					}
 				}
 			}
+
+			Dictionary.Clear();
 		}
 
 		/// <inheritdoc />
@@ -371,6 +377,7 @@ namespace GameLovers
 					if (actions.Value[i] == onUpdate)
 					{
 						actions.Value.RemoveAt(i);
+						break;
 					}
 				}
 			}
@@ -380,6 +387,7 @@ namespace GameLovers
 				if (_updateActions[i] == onUpdate)
 				{
 					_updateActions.RemoveAt(i);
+					break;
 				}
 			}
 		}
