@@ -126,6 +126,23 @@ namespace GameLoversEditor.DataExtensions.Tests
 		}
 
 		[Test]
+		public void StopObserve_WhenCalledOnce_RemovesOnlyOneObserverInstance()
+		{
+			_list.Observe(_caller.Call);
+			_list.Observe(_caller.Call);
+			_list.StopObserving(_caller.Call);
+			_list.Add(_previousValue);
+
+			_list[_index] = _previousValue;
+
+			_list.RemoveAt(_index);
+
+			_caller.Received(1).Call(Arg.Any<int>(), Arg.Is(0), Arg.Is(_previousValue), ObservableUpdateType.Added);
+			_caller.Received(1).Call(_index, _previousValue, _previousValue, ObservableUpdateType.Updated);
+			_caller.Received(1).Call(_index, _previousValue, 0, ObservableUpdateType.Removed);
+		}
+
+		[Test]
 		public void StopObservingAllCheck()
 		{
 			_list.Observe(_caller.Call);
@@ -137,7 +154,7 @@ namespace GameLoversEditor.DataExtensions.Tests
 		}
 
 		[Test]
-		public void StopObservingAll_MultipleCalls_Check()
+		public void StopObservingAll_MultipleCalls_StopsAll()
 		{
 			_list.Observe(_caller.Call);
 			_list.Observe(_caller.Call);

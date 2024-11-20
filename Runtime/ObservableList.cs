@@ -232,26 +232,32 @@ namespace GameLovers
 
 			List.RemoveAt(index);
 
-			for (var i = 0; i < _updateActions.Count; i++)
+			for (var i = _updateActions.Count - 1; i > -1; i--)
 			{
-				_updateActions[i](index, data, default, ObservableUpdateType.Removed);
+				var action = _updateActions[i];
+
+				action(index, data, default, ObservableUpdateType.Removed);
+
+				// Shift the index if an action was unsubscribed
+				i = AdjustIndex(i, action);
 			}
 		}
 
 		/// <inheritdoc />
 		public virtual void Clear()
 		{
-			var list = new List<T>(List);
+			// Create a copy in case that one of the callbacks modifies the list (Ex: removing a subscriber)
+			var copy = _updateActions.ToList();
 
-			List.Clear();
-
-			for (var i = 0; i < _updateActions.Count; i++)
+			for (var i = copy.Count - 1; i > -1; i--)
 			{
-				for (var j = 0; j < list.Count; j++)
+				for (var j = 0; j < List.Count; j++)
 				{
-					_updateActions[i](j, list[j], default, ObservableUpdateType.Removed);
+					copy[i](j, List[j], default, ObservableUpdateType.Removed);
 				}
 			}
+
+			List.Clear();
 		}
 
 		/// <inheritdoc />
@@ -305,6 +311,24 @@ namespace GameLovers
 			{
 				_updateActions[i](index, previousValue, data, ObservableUpdateType.Updated);
 			}
+		}
+
+		private int AdjustIndex(int index, Action<int, T, T, ObservableUpdateType> action)
+		{
+			if (index < _updateActions.Count && _updateActions[index] == action)
+			{
+				return index;
+			}
+
+			for (var i = index - 1; i > -1; i--)
+			{
+				if (_updateActions[i] == action)
+				{
+					return i;
+				}
+			}
+
+			return index + 1;
 		}
 	}
 

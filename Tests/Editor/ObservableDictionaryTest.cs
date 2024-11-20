@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using GameLovers;
 using NSubstitute;
 using NUnit.Framework;
-using UnityEngine;
 
 // ReSharper disable once CheckNamespace
 
