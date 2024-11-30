@@ -266,12 +266,10 @@ namespace GameLovers
 		/// <inheritdoc />
 		public virtual bool Remove(TKey key)
 		{
-			if (!Dictionary.TryGetValue(key, out var value))
+			if (!Dictionary.TryGetValue(key, out var value) || !Dictionary.Remove(key))
 			{
 				return false;
 			}
-
-			Dictionary.Remove(key);
 
 			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly && _keyUpdateActions.TryGetValue(key, out var actions))
 			{

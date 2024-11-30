@@ -4,6 +4,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2024-11-30
+
+**Fix**:
+- *ObservableDictionary.Remove(T)* no longer sends an update if id doesn't find the element to remove it
+
 ## [0.6.5] - 2024-11-20
 
 **Fix**:
