@@ -4,6 +4,13 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-11-03
+
+**New**:
+- Added *Rebind* functionality to all Observable classes (*ObservableField*, *ObservableList*, *ObservableDictionary*) allowing rebinding to new data sources without losing existing observers
+- Added *Rebind* methods to all Observable Resolver classes (*ObservableResolverField*, *ObservableResolverList*, *ObservableResolverDictionary*) to rebind to new origin collections and resolver functions
+- Added new *IObservableResolverField* interface with *Rebind* method for resolver field implementations
+
 ## [0.6.7] - 2025-04-07
 
 **New**:

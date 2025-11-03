@@ -85,5 +85,49 @@ namespace GameLoversEditor.DataExtensions.Tests
 
 			_mockDictionary.Received().Clear();
 		}
+
+		[Test]
+		public void Rebind_ChangesOriginDictionary()
+		{
+			// Setup: Add items to original dictionary
+			_dictionary.AddOrigin(_key, _value);
+
+			// Create new dictionary and rebind
+			var newDictionary = new Dictionary<int, string> { { 100, "100" }, { 200, "200" } };
+			_dictionary.Rebind(
+				newDictionary,
+				origin => new KeyValuePair<int, int>(origin.Key, int.Parse(origin.Value)),
+				(key, value) => new KeyValuePair<int, string>(key, value.ToString()));
+
+			// Verify new dictionary is being used
+			Assert.AreEqual(2, _dictionary.Count);
+			Assert.IsTrue(_dictionary.ContainsKey(100));
+			Assert.IsTrue(_dictionary.ContainsKey(200));
+			Assert.AreEqual(100, _dictionary[100]);
+			Assert.AreEqual(200, _dictionary[200]);
+
+			// Verify old dictionary is no longer used
+			Assert.IsFalse(_dictionary.ContainsKey(_key));
+		}
+
+		[Test]
+		public void Rebind_KeepsObservers()
+		{
+			// Setup observer
+			var observerCalls = 0;
+			_dictionary.ObservableUpdateFlag = ObservableUpdateFlag.UpdateOnly;
+			_dictionary.Observe((key, prev, curr, type) => observerCalls++);
+
+			// Create new dictionary and rebind
+			var newDictionary = new Dictionary<int, string> { { 100, "100" } };
+			_dictionary.Rebind(
+				newDictionary,
+				origin => new KeyValuePair<int, int>(origin.Key, int.Parse(origin.Value)),
+				(key, value) => new KeyValuePair<int, string>(key, value.ToString()));
+
+			// Trigger update and verify observer is still active
+			_dictionary.Add(300, 300);
+			Assert.AreEqual(1, observerCalls);
+		}
 	}
 }

@@ -94,7 +94,7 @@ namespace GameLovers
 	/// <remarks>
 	/// This interface resolves between 2 lists with different types of values
 	/// </remarks>
-	public interface IObservableResolverListReader<T, TOrigin> : IObservableListReader<T>
+	public interface IObservableResolverListReader<T, out TOrigin> : IObservableListReader<T>
 	{
 		/// <summary>
 		/// The Original List that is being resolved across the entire interface
@@ -134,6 +134,15 @@ namespace GameLovers
 		/// Clear's to the origin list
 		/// </remarks>
 		void ClearOrigin();
+
+		/// <summary>
+		/// Rebinds this list to a new origin list and resolver functions without losing existing observers.
+		/// The internal list will be rebuilt from the new origin list using the new resolvers.
+		/// </summary>
+		/// <param name="originList">The new origin list to bind to</param>
+		/// <param name="fromOrignResolver">The new function to convert from origin type to this list's type</param>
+		/// <param name="toOrignResolver">The new function to convert from this list's type to origin type</param>
+		void Rebind(IList<TOrigin> originList, Func<TOrigin, T> fromOrignResolver, Func<T, TOrigin> toOrignResolver);
 	}
 
 	/// <inheritdoc />
@@ -160,11 +169,20 @@ namespace GameLovers
 		/// <inheritdoc />
 		public IReadOnlyList<T> ReadOnlyList => new List<T>(List);
 
-		protected virtual List<T> List { get; }
+		protected virtual List<T> List { get; set; }
 
 		protected ObservableList() { }
 
 		public ObservableList(IList<T> list)
+		{
+			List = list as List<T> ?? list.ToList();
+		}
+
+		/// <summary>
+		/// Rebinds this list to a new list without losing existing observers.
+		/// </summary>
+		/// <param name="list">The new list to bind to</param>
+		public void Rebind(IList<T> list)
 		{
 			List = list as List<T> ?? list.ToList();
 		}
@@ -332,12 +350,15 @@ namespace GameLovers
 		}
 	}
 
-	/// <inheritdoc />
+	/// <inheritdoc cref="IObservableResolverList{T, TOrigin}"/>
+	/// <remarks>
+	/// This class resolves between 2 lists with different types of values
+	/// </remarks>
 	public class ObservableResolverList<T, TOrigin> : ObservableList<T>, IObservableResolverList<T, TOrigin>
 	{
-		private readonly IList<TOrigin> _originList;
-		private readonly Func<TOrigin, T> _fromOrignResolver;
-		private readonly Func<T, TOrigin> _toOrignResolver;
+		private IList<TOrigin> _originList;
+		private Func<TOrigin, T> _fromOrignResolver;
+		private Func<T, TOrigin> _toOrignResolver;
 
 		/// <inheritdoc />
 		public IReadOnlyList<TOrigin> OriginList => new List<TOrigin>(_originList);
@@ -351,6 +372,23 @@ namespace GameLovers
 			_fromOrignResolver = fromOrignResolver;
 			_toOrignResolver = toOrignResolver;
 
+			for (var i = 0; i < originList.Count; i++)
+			{
+				List.Add(fromOrignResolver(originList[i]));
+			}
+		}
+
+		/// <inheritdoc />
+		public void Rebind(IList<TOrigin> originList, 
+			Func<TOrigin, T> fromOrignResolver, 
+			Func<T, TOrigin> toOrignResolver)
+		{
+			_originList = originList;
+			_fromOrignResolver = fromOrignResolver;
+			_toOrignResolver = toOrignResolver;
+
+			// Rebuild the internal list from the new origin list
+			List.Clear();
 			for (var i = 0; i < originList.Count; i++)
 			{
 				List.Add(fromOrignResolver(originList[i]));

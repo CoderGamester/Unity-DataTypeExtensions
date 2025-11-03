@@ -176,6 +176,17 @@ namespace GameLovers
 		/// Clear's to the origin dictionary
 		/// </remarks>
 		void ClearOrigin();
+
+		/// <summary>
+		/// Rebinds this dictionary to a new origin dictionary and resolver functions without losing existing observers.
+		/// The internal dictionary will be rebuilt from the new origin dictionary using the new resolvers.
+		/// </summary>
+		/// <param name="dictionary">The new origin dictionary to bind to</param>
+		/// <param name="fromOrignResolver">The new function to convert from origin types to this dictionary's types</param>
+		/// <param name="toOrignResolver">The new function to convert from this dictionary's types to origin types</param>
+		void Rebind(IDictionary<TKeyOrigin, TValueOrigin> dictionary,
+			Func<KeyValuePair<TKeyOrigin, TValueOrigin>, KeyValuePair<TKey, TValue>> fromOrignResolver,
+			Func<TKey, TValue, KeyValuePair<TKeyOrigin, TValueOrigin>> toOrignResolver);
 	}
 
 	/// <inheritdoc />
@@ -193,7 +204,7 @@ namespace GameLovers
 		/// <inheritdoc />
 		public ReadOnlyDictionary<TKey, TValue> ReadOnlyDictionary => new ReadOnlyDictionary<TKey, TValue>(Dictionary);
 
-		protected virtual IDictionary<TKey, TValue> Dictionary { get; }
+		protected virtual IDictionary<TKey, TValue> Dictionary { get; set; }
 
 		private ObservableDictionary() { }
 
@@ -201,6 +212,15 @@ namespace GameLovers
 		{
 			Dictionary = dictionary;
 			ObservableUpdateFlag = ObservableUpdateFlag.KeyUpdateOnly;
+		}
+
+		/// <summary>
+		/// Rebinds this dictionary to a new dictionary without losing existing observers.
+		/// </summary>
+		/// <param name="dictionary">The new dictionary to bind to</param>
+		public void Rebind(IDictionary<TKey, TValue> dictionary)
+		{
+			Dictionary = dictionary;
 		}
 
 		/// <inheritdoc cref="Dictionary{TKey,TValue}.this" />
@@ -468,14 +488,14 @@ namespace GameLovers
 		}
 	}
 
-	/// <inheritdoc />
+	/// <inheritdoc cref="IObservableResolverDictionary{TKey, TValue, TKeyOrigin, TValueOrigin}"/>
 	public class ObservableResolverDictionary<TKey, TValue, TKeyOrigin, TValueOrigin> : 
 		ObservableDictionary<TKey, TValue>,
 		IObservableResolverDictionary<TKey, TValue, TKeyOrigin, TValueOrigin>
 	{
-		private readonly IDictionary<TKeyOrigin, TValueOrigin> _dictionary;
-		private readonly Func<TKey, TValue, KeyValuePair<TKeyOrigin, TValueOrigin>> _toOrignResolver;
-		private readonly Func<KeyValuePair<TKeyOrigin, TValueOrigin>, KeyValuePair<TKey, TValue>> _fromOrignResolver;
+		private IDictionary<TKeyOrigin, TValueOrigin> _dictionary;
+		private Func<TKey, TValue, KeyValuePair<TKeyOrigin, TValueOrigin>> _toOrignResolver;
+		private Func<KeyValuePair<TKeyOrigin, TValueOrigin>, KeyValuePair<TKey, TValue>> _fromOrignResolver;
 
 		/// <inheritdoc />
 		public ReadOnlyDictionary<TKeyOrigin, TValueOrigin> OriginDictionary => new ReadOnlyDictionary<TKeyOrigin, TValueOrigin>(_dictionary);
@@ -489,6 +509,23 @@ namespace GameLovers
 			_toOrignResolver = toOrignResolver;
 			_fromOrignResolver = fromOrignResolver;
 
+			foreach (var pair in dictionary)
+			{
+				Dictionary.Add(fromOrignResolver(pair));
+			}
+		}
+
+		/// <inheritdoc />
+		public void Rebind(IDictionary<TKeyOrigin, TValueOrigin> dictionary,
+			Func<KeyValuePair<TKeyOrigin, TValueOrigin>, KeyValuePair<TKey, TValue>> fromOrignResolver,
+			Func<TKey, TValue, KeyValuePair<TKeyOrigin, TValueOrigin>> toOrignResolver)
+		{
+			_dictionary = dictionary;
+			_toOrignResolver = toOrignResolver;
+			_fromOrignResolver = fromOrignResolver;
+
+			// Rebuild the internal dictionary from the new origin dictionary
+			Dictionary.Clear();
 			foreach (var pair in dictionary)
 			{
 				Dictionary.Add(fromOrignResolver(pair));
