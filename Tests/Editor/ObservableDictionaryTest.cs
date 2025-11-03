@@ -280,5 +280,37 @@ namespace GameLoversEditor.DataExtensions.Tests
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
 		}
+
+		[Test]
+		public void RebindCheck_BaseClass()
+		{
+			// Add initial data
+			_dictionary.Add(1, 100);
+			_dictionary.Add(2, 200);
+
+			// Setup key-specific observer (this works with default KeyUpdateOnly flag)
+			_dictionary.Observe(40, _caller.Call);
+
+			// Create new dictionary and rebind
+			var newDictionary = new Dictionary<int, int> { { 10, 1000 }, { 20, 2000 }, { 30, 3000 } };
+			_dictionary.Rebind(newDictionary);
+
+			// Verify new dictionary is being used
+			Assert.AreEqual(3, _dictionary.Count);
+			Assert.IsTrue(_dictionary.ContainsKey(10));
+			Assert.IsTrue(_dictionary.ContainsKey(20));
+			Assert.IsTrue(_dictionary.ContainsKey(30));
+			Assert.AreEqual(1000, _dictionary[10]);
+			Assert.AreEqual(2000, _dictionary[20]);
+			Assert.AreEqual(3000, _dictionary[30]);
+
+			// Verify old keys are no longer present
+			Assert.IsFalse(_dictionary.ContainsKey(1));
+			Assert.IsFalse(_dictionary.ContainsKey(2));
+
+			// Verify observer still works after rebind
+			_dictionary.Add(40, 4000);
+			_caller.Received(1).Call(40, 0, 4000, ObservableUpdateType.Added);
+		}
 	}
 }

@@ -187,5 +187,30 @@ namespace GameLoversEditor.DataExtensions.Tests
 
 			_caller.DidNotReceive().Call(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<ObservableUpdateType>());
 		}
+
+		[Test]
+		public void RebindCheck_BaseClass()
+		{
+			// Add initial data
+			_list.Add(_previousValue);
+			_list.Add(_newValue);
+
+			// Setup observer
+			_list.Observe(_caller.Call);
+
+			// Create new list and rebind
+			var newList = new List<int> { 100, 200, 300 };
+			_list.Rebind(newList);
+
+			// Verify new list is being used
+			Assert.AreEqual(3, _list.Count);
+			Assert.AreEqual(100, _list[0]);
+			Assert.AreEqual(200, _list[1]);
+			Assert.AreEqual(300, _list[2]);
+
+			// Verify observer still works
+			_list.Add(400);
+			_caller.Received(1).Call(Arg.Any<int>(), Arg.Is(0), Arg.Is(400), ObservableUpdateType.Added);
+		}
 	}
 }

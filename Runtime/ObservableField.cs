@@ -50,6 +50,26 @@ namespace GameLovers
 		/// The field value with possibility to be changed
 		/// </summary>
 		new T Value { get; set; }
+
+		/// <summary>
+		/// Rebinds this field to a new value without losing existing observers.
+		/// </summary>
+		/// <param name="initialValue">The new initial value for the field</param>
+		void Rebind(T initialValue);
+	}
+
+	/// <inheritdoc />
+	/// <remarks>
+	/// A resolver field with the possibility to rebind to new resolver functions
+	/// </remarks>
+	public interface IObservableResolverField<T> : IObservableField<T>
+	{
+		/// <summary>
+		/// Rebinds this field to new resolver functions without losing existing observers
+		/// </summary>
+		/// <param name="fieldResolver">The new getter function for the field</param>
+		/// <param name="fieldSetter">The new setter function for the field</param>
+		void Rebind(Func<T> fieldResolver, Action<T> fieldSetter);
 	}
 
 	/// <inheritdoc />
@@ -83,6 +103,12 @@ namespace GameLovers
 		}
 
 		public static implicit operator T(ObservableField<T> value) => value.Value;
+
+		/// <inheritdoc />
+		public void Rebind(T initialValue)
+		{
+			_value = initialValue;
+		}
 
 		/// <inheritdoc />
 		public void Observe(Action<T, T> onUpdate)
@@ -137,11 +163,11 @@ namespace GameLovers
 		}
 	}
 
-	/// <inheritdoc />
-	public class ObservableResolverField<T> : ObservableField<T>
+	/// <inheritdoc cref="IObservableResolverField{T}"/>
+	public class ObservableResolverField<T> : ObservableField<T>, IObservableResolverField<T>
 	{
-		private readonly Func<T> _fieldResolver;
-		private readonly Action<T> _fieldSetter;
+		private Func<T> _fieldResolver;
+		private Action<T> _fieldSetter;
 
 		/// <inheritdoc cref="IObservableField{T}.Value" />
 		public override T Value
@@ -160,6 +186,17 @@ namespace GameLovers
 		private ObservableResolverField() { }
 
 		public ObservableResolverField(Func<T> fieldResolver, Action<T> fieldSetter)
+		{
+			_fieldResolver = fieldResolver;
+			_fieldSetter = fieldSetter;
+		}
+
+		/// <summary>
+		/// Rebinds this field to new resolver functions without losing existing observers
+		/// </summary>
+		/// <param name="fieldResolver">The new getter function for the field</param>
+		/// <param name="fieldSetter">The new setter function for the field</param>
+		public void Rebind(Func<T> fieldResolver, Action<T> fieldSetter)
 		{
 			_fieldResolver = fieldResolver;
 			_fieldSetter = fieldSetter;

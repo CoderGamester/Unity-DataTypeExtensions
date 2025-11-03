@@ -185,5 +185,76 @@ namespace GameLoversEditor.DataExtensions.Tests
 
 			_caller.DidNotReceive().UpdateCall(Arg.Any<int>(), Arg.Any<int>());
 		}
+
+		[Test]
+		public void RebindCheck()
+		{
+			const int valueCheck = 10;
+			var newMockInt = 5;
+
+			// Setup observer
+			_observableResolverField.Observe(_caller.UpdateCall);
+			_caller.ClearReceivedCalls();
+
+			// Rebind to a new field
+			_observableResolverField.Rebind(() => newMockInt, i => newMockInt = i);
+
+			// Verify rebind worked
+			Assert.AreEqual(newMockInt, _observableResolverField.Value);
+
+			// Set value through the rebinded field
+			_observableResolverField.Value = valueCheck;
+
+			// Verify the new field was updated
+			Assert.AreEqual(valueCheck, newMockInt);
+			Assert.AreEqual(valueCheck, _observableResolverField.Value);
+
+			// Verify old field was not updated
+			Assert.AreNotEqual(valueCheck, _mockInt);
+
+			// Verify observers still work after rebind
+			_caller.Received(1).UpdateCall(5, valueCheck);
+		}
+
+		[Test]
+		public void RebindCheck_KeepsObservers()
+		{
+			const int valueCheck = 15;
+			var newMockInt = 0;
+
+			// Setup multiple observers before rebind
+			_observableResolverField.Observe(_caller.UpdateCall);
+			_observableResolverField.Observe(_caller.UpdateCall);
+
+			// Rebind to a new field
+			_observableResolverField.Rebind(() => newMockInt, i => newMockInt = i);
+			_caller.ClearReceivedCalls();
+
+			// Trigger update
+			_observableResolverField.Value = valueCheck;
+
+			// Verify both observers were notified
+			_caller.Received(2).UpdateCall(0, valueCheck);
+		}
+
+		[Test]
+		public void RebindCheck_BaseClass()
+		{
+			const int initialValue = 5;
+			const int newValue = 10;
+
+			// Setup observer on base class
+			_observableField.Observe(_caller.UpdateCall);
+
+			// Rebind to a new value
+			_observableField.Rebind(initialValue);
+
+			// Verify new value is set
+			Assert.AreEqual(initialValue, _observableField.Value);
+
+			// Trigger update and verify observer still works
+			_observableField.Value = newValue;
+			_caller.Received(1).UpdateCall(initialValue, newValue);
+		}
 	}
 }
