@@ -1,18 +1,21 @@
 {
-  "name": "com.gamelovers.dataextensions",
-  "displayName": "Unity Data Type Extensions",
+  "name": "com.gamelovers.gamedata",
+  "displayName": "GameLovers GameData",
   "author": "Miguel Tomas",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "unity": "6000.0",
   "license": "MIT",
-  "description": "This package extends various sets of data types to be used in any type of data containers or persistent serializable data",
+  "description": "Core data utilities and configuration management for Unity games. Includes observable data types (fields, lists, dictionaries), deterministic floats (floatP), serialization helpers, type-safe config storage, versioning, and backend sync support.",
   "type": "library",
   "hideInEditor": false,
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  },
   "samples": [
     {
       "displayName": "Enum Selector Example",
-      "description": "This sample shows how to use EnumSelector with a property drawer in the editor",
-      "path": "Samples~/Enum Selector Example"
+      "description": "Shows how to use EnumSelector with a property drawer",
+      "path": "Samples~/EnumSelectorExample"
     }
   ]
 }

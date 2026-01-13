@@ -4,6 +4,21 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-01-13
+
+**BREAKING**:
+- Package renamed from `com.gamelovers.dataextensions` to `com.gamelovers.gamedata`
+
+**New**:
+- Merged `com.gamelovers.configsprovider` into this package
+- Added `ConfigsProvider` for type-safe config storage and versioning
+- Added `ConfigsSerializer` for JSON serialization with backend sync support
+- Added `ConfigsScriptableObject` for ScriptableObject-based config containers
+- Added `IConfigsProvider`, `IConfigsAdder`, `IConfigsContainer` interfaces
+- Added Newtonsoft.Json dependency for serialization
+
+---
+
 ## [0.7.0] - 2025-11-03
 
 **New**:
@@ -98,5 +113,34 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Removed unnecessary files
 
 ## [0.1.0] - 2020-08-31
+
+- Initial submission for package distribution
+
+---
+
+## ConfigsProvider History (merged from com.gamelovers.configsprovider)
+
+## [0.2.1] - 2025-11-02
+
+**New**:
+- Added the *TryGetConfig* for requesting singleton configs from the *ConfigProvider*.
+
+## [0.2.0] - 2025-09-24
+
+**New**:
+- Added the *ConfigsScriptableObject* to contain a Dictionary map collection in a ScriptableObject config.
+
+## [0.1.2] - 2024-11-13
+
+**Changed**:
+- Removed the struct constraints from *IConfigsProvider*
+
+## [0.1.1] - 2023-09-03
+
+**Fix**:
+- Replace bad struct objects to classes
+- Add missing documentation
+
+## [0.1.0] - 2023-08-03
 
 - Initial submission for package distribution

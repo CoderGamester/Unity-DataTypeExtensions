@@ -1,13 +1,10 @@
 {
-    "name": "GameLovers.DataExtensions.Editor",
+    "name": "GameLovers.GameData.Editor",
+    "rootNamespace": "",
     "references": [
-        "GUID:9e24947de15b9834991c9d8411ea37cf",
-        "GUID:69448af7b92c7f342b298e06a37122aa",
-        "GUID:22c6cdfa54ae844a9a9eda2f0014b020"
+        "GameLovers.GameData"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": ["Editor"],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
