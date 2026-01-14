@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 // ReSharper disable once CheckNamespace
 
-namespace GameLovers
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Container for extension functions for the System.Collections.Generic.IList{T} and System.Collections.IList

@@ -2,7 +2,7 @@ using System;
 using Newtonsoft.Json;
 using UnityEngine;
 
-namespace GameLovers.Serialization
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// JSON converter for Unity's Vector2 struct.

@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 
-namespace GameLovers.Configs
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Interface that represents the service that holds and version configurations

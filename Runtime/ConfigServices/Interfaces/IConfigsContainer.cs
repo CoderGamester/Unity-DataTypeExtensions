@@ -1,7 +1,6 @@
 using System.Collections.Generic;
-using GameLovers.Serialization;
 
-namespace GameLovers.Configs
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Generic contract for a config to be serialized in containers

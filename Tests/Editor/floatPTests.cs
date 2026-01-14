@@ -1,4 +1,4 @@
-﻿using GameLovers.Math;
+﻿using GameLovers.GameData;
 using NUnit.Framework;
 
 // ReSharper disable once CheckNamespace

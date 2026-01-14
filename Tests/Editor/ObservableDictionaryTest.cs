@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using GameLovers;
-using GameLovers.Observables;
+using GameLovers.GameData;
 using NSubstitute;
 using NUnit.Framework;
 

@@ -3,8 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
-using GameLovers;
-using GameLovers.Observables;
+using GameLovers.GameData;
 using NSubstitute;
 using NUnit.Framework;
 

@@ -1,4 +1,4 @@
-namespace GameLovers.Configs
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Instance of a game-specific serializable IConfigsProvider.

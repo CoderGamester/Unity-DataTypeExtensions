@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 using UnityEngine;
 using System;
 
-namespace GameLovers.Serialization
+namespace GameLovers.GameData
 {
     /// <summary>
     /// JSON converter for Unity's Color struct that handles serialization to/from:

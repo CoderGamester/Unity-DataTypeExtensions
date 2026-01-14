@@ -4,7 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
-using GameLovers.Serialization;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
@@ -12,7 +11,7 @@ using Object = UnityEngine.Object;
 #nullable enable
 // ReSharper disable once CheckNamespace
 
-namespace GameLovers
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Utility methods for both Unity <see cref="Object"/> and C# <see cref="object"/> types.

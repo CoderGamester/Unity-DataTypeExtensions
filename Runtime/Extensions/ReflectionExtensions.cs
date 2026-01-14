@@ -7,7 +7,7 @@ using System.Text;
 #nullable enable
 // ReSharper disable once CheckNamespace
 
-namespace GameLovers
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Container for extensions to use when using reflection in a code base

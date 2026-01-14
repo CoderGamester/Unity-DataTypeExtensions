@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace GameLovers.Configs
+namespace GameLovers.GameData
 {
 	/// <inheritdoc />
 	public class ConfigsProvider : IConfigsAdder
@@ -13,14 +13,6 @@ namespace GameLovers.Configs
 		public ulong Version => _version;
 		
 		private readonly IDictionary<Type, IEnumerable> _configs = new Dictionary<Type, IEnumerable>();
-
-		/// <summary>
-		/// Sets the current version number for the current configuration
-		/// </summary>
-		public void SetVersion(ulong version)
-		{
-			_version = version;
-		}
 
 		/// <inheritdoc />
 		public bool TryGetConfig<T>(int id, out T config)
@@ -67,6 +59,18 @@ namespace GameLovers.Configs
 		}
 
 		/// <inheritdoc />
+		public IEnumerable<T> EnumerateConfigs<T>()
+		{
+			return GetConfigsDictionary<T>().Values;
+		}
+
+		/// <inheritdoc />
+		public IEnumerable<KeyValuePair<int, T>> EnumerateConfigsWithIds<T>()
+		{
+			return GetConfigsDictionary<T>();
+		}
+
+		/// <inheritdoc />
 		public void AddSingletonConfig<T>(T config)
 		{
 			_configs.Add(typeof(T), new Dictionary<int, T> {{ _singleConfigId, config }});
@@ -105,6 +109,15 @@ namespace GameLovers.Configs
 		{
 			AddAllConfigs(toUpdate);
 			SetVersion(version);
+		}
+
+		/// <summary>
+		/// Sets the current version number for the current configuration.
+		/// Internal to ensure version is only updated through <see cref="UpdateTo"/> for atomicity.
+		/// </summary>
+		internal void SetVersion(ulong version)
+		{
+			_version = version;
 		}
 	}
 }

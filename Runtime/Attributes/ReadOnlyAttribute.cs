@@ -2,7 +2,7 @@ using UnityEngine;
 
 // ReSharper disable once CheckNamespace
 
-namespace GameLovers
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Read Only attribute.

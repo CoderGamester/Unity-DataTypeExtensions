@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using UnityEngine;
-using GameLovers.Serialization;
 
-namespace GameLovers.Configs
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Abstract base class for configuration scriptable objects that store key-value pairs.

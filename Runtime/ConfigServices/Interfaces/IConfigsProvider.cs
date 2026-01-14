@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace GameLovers.Configs
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Provides all the Game's config static data, including the game design data
@@ -47,10 +47,20 @@ namespace GameLovers.Configs
 		/// Requests the Config Dictionary of <typeparamref name="T"/> type
 		/// </summary>
 		IReadOnlyDictionary<int, T> GetConfigsDictionary<T>();
+		
+		/// <summary>
+		/// Enumerates all configs of <typeparamref name="T"/> type without allocating a new list.
+		/// </summary>
+		IEnumerable<T> EnumerateConfigs<T>();
+
+		/// <summary>
+		/// Enumerates all configs of <typeparamref name="T"/> type with their IDs without allocating a new list.
+		/// </summary>
+		IEnumerable<KeyValuePair<int, T>> EnumerateConfigsWithIds<T>();
 
 		/// <summary>
 		/// Obtains all configs as a readonly dictionary
 		/// </summary>
-		public IReadOnlyDictionary<Type, IEnumerable> GetAllConfigs();
+		IReadOnlyDictionary<Type, IEnumerable> GetAllConfigs();
 	}
 }

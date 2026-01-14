@@ -16,9 +16,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Added `ConfigsScriptableObject` for ScriptableObject-based config containers
 - Added `IConfigsProvider`, `IConfigsAdder`, `IConfigsContainer` interfaces
 - Added Newtonsoft.Json dependency for serialization
-- Added Unity 6 UI Toolkit support for `ReadOnlyPropertyDrawer` and `EnumSelectorPropertyDrawer`
+- Added Unity 6 UI Toolkit support for `ReadOnlyPropertyDrawer` and `EnumSelectorPropertyDrawer` with IMGUI fallback for custom inspector compatibility
 - Added `Runtime/link.xml` to prevent code stripping of core serialization logic
 - Added Newtonsoft JSON converters for `Color`, `Vector2`, `Vector3`, `Vector4`, and `Quaternion` to `ConfigsSerializer`
+- Added `ComputedField<T>` for derived observables with automatic dependency tracking, with fluent `Select` and `CombineWith` extension methods 
+- Added `ObservableHashSet<T>` collection type with observation and batch support
+- Added `Configs.Validation` framework with `[Required]`, `[Range]`, and `[MinLength]` attributes
+- Added `Secure` serialization mode to `ConfigsSerializer` for safe remote payloads
 
 **Changed**:
 - **BREAKING**: Package renamed from `com.gamelovers.dataextensions` to `com.gamelovers.gamedata`
@@ -27,7 +31,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 **Fix**:
 - Fixed `EnumSelector.SetSelection` to correctly handle enums with explicit/non-contiguous values
-- Added graceful duplicate key handling and logging to `ConfigsScriptableObject`
 
 ---
 

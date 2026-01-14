@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace GameLovers.Observables
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// A field with the possibility to observe changes to it's elements defined <see cref="ObservableUpdateType"/> rules
@@ -12,6 +12,12 @@ namespace GameLovers.Observables
 		/// The field value
 		/// </summary>
 		T Value { get; }
+
+		/// <summary>
+		/// Starts a batch update for this field. 
+		/// Notifications will be suppressed until the returned object is disposed.
+		/// </summary>
+		IDisposable BeginBatch();
 
 		/// <summary>
 		/// Observes this field with the given <paramref name="onUpdate"/> when any data changes
@@ -71,16 +77,23 @@ namespace GameLovers.Observables
 	}
 
 	/// <inheritdoc />
-	public class ObservableField<T> : IObservableField<T>
+	public class ObservableField<T> : IObservableField<T>, IBatchable, IComputedDependency
 	{
 		private readonly IList<Action<T, T>> _updateActions = new List<Action<T, T>>();
+		private readonly List<Action> _dependencyActions = new List<Action>();
 
 		private T _value;
+		private bool _isBatching;
+		private T _batchPreviousValue;
 
 		/// <inheritdoc cref="IObservableField{T}.Value" />
 		public virtual T Value
 		{
-			get => _value;
+			get
+			{
+				ComputedTracker.OnRead(this);
+				return _value;
+			}
 			set
 			{
 				var previousValue = _value;
@@ -101,6 +114,46 @@ namespace GameLovers.Observables
 		}
 
 		public static implicit operator T(ObservableField<T> value) => value.Value;
+
+		/// <inheritdoc />
+		void IComputedDependency.Subscribe(Action onDependencyChanged)
+		{
+			_dependencyActions.Add(onDependencyChanged);
+		}
+
+		/// <inheritdoc />
+		void IComputedDependency.Unsubscribe(Action onDependencyChanged)
+		{
+			_dependencyActions.Remove(onDependencyChanged);
+		}
+
+		/// <inheritdoc />
+		public IDisposable BeginBatch()
+		{
+			var batch = new ObservableBatch();
+			batch.Add(this);
+			return batch;
+		}
+
+		/// <inheritdoc />
+		void IBatchable.SuppressNotifications()
+		{
+			if (!_isBatching)
+			{
+				_isBatching = true;
+				_batchPreviousValue = _value;
+			}
+		}
+
+		/// <inheritdoc />
+		void IBatchable.ResumeNotifications()
+		{
+			if (_isBatching)
+			{
+				_isBatching = false;
+				InvokeUpdate(_batchPreviousValue);
+			}
+		}
 
 		/// <inheritdoc />
 		public void Rebind(T initialValue)
@@ -154,11 +207,30 @@ namespace GameLovers.Observables
 
 		protected void InvokeUpdate(T previousValue)
 		{
+			if (_isBatching)
+			{
+				return;
+			}
+
+			// Cache value to avoid repeated Value getter calls (which trigger ComputedTracker.OnRead)
+			var currentValue = GetCurrentValue();
+
 			for (var i = 0; i < _updateActions.Count; i++)
 			{
-				_updateActions[i].Invoke(previousValue, Value);
+				_updateActions[i].Invoke(previousValue, currentValue);
+			}
+
+			for (var i = 0; i < _dependencyActions.Count; i++)
+			{
+				_dependencyActions[i].Invoke();
 			}
 		}
+
+		/// <summary>
+		/// Gets the current value without triggering dependency tracking.
+		/// Override in derived classes that store values differently.
+		/// </summary>
+		protected virtual T GetCurrentValue() => _value;
 	}
 
 	/// <inheritdoc cref="IObservableResolverField{T}"/>
@@ -170,7 +242,11 @@ namespace GameLovers.Observables
 		/// <inheritdoc cref="IObservableField{T}.Value" />
 		public override T Value
 		{
-			get => _fieldResolver();
+			get
+			{
+				ComputedTracker.OnRead(this);
+				return _fieldResolver();
+			}
 			set
 			{
 				var previousValue = _fieldResolver();
@@ -199,6 +275,9 @@ namespace GameLovers.Observables
 			_fieldResolver = fieldResolver;
 			_fieldSetter = fieldSetter;
 		}
+
+		/// <inheritdoc />
+		protected override T GetCurrentValue() => _fieldResolver();
 
 		public static implicit operator T(ObservableResolverField<T> value) => value.Value;
 	}

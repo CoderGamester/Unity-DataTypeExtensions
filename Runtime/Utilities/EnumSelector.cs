@@ -4,7 +4,7 @@ using UnityEngine;
 
 // ReSharper disable once CheckNamespace
 
-namespace GameLovers
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Tags the current object as an <seealso cref="EnumSelector{T}"/>

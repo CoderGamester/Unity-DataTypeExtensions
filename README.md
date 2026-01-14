@@ -14,6 +14,7 @@ Managing game data in Unity often leads to fragmented solutions: scattered confi
 |---------|----------|
 | **Scattered config management** | Type-safe `ConfigsProvider` with O(1) lookups and versioning |
 | **Tight coupling to data changes** | Observable types (`ObservableField`, `ObservableList`, `ObservableDictionary`) for reactive programming |
+| **Manual derived state updates** | `ComputedField` for auto-updating calculated values with dependency tracking |
 | **Cross-platform float inconsistencies** | Deterministic `floatP` type for reproducible calculations across all platforms |
 | **Backend sync complexity** | Built-in JSON serialization with `ConfigsSerializer` for client/server sync |
 | **Dictionary Inspector editing** | `UnitySerializedDictionary` for seamless Inspector support |
@@ -25,6 +26,7 @@ Managing game data in Unity often leads to fragmented solutions: scattered confi
 
 - **📊 Configuration Management** - Type-safe, high-performance config storage with versioning
 - **🔄 Observable Data Types** - `ObservableField`, `ObservableList`, `ObservableDictionary` for reactive updates
+- **🧮 Computed Values** - `ComputedField` for auto-updating derived state with dependency tracking
 - **🎯 Deterministic Math** - `floatP` type for cross-platform reproducible floating-point calculations
 - **📡 Backend Sync** - JSON serialization/deserialization for atomic config updates
 - **📦 ScriptableObject Containers** - Designer-friendly workflows for editing configs in Inspector
@@ -81,25 +83,30 @@ Add the following line to your project's `Packages/manifest.json`:
 
 ```
 Runtime/
-├── ConfigProvider.cs             # Type-safe config storage
-├── ConfigSerializer.cs           # JSON serialization for backend sync
-├── ConfigsScriptableObject.cs    # ScriptableObject-based config containers
-├── IConfigsProvider.cs           # Config provider interface
-├── IConfigsAdder.cs              # Config adder interface
-├── IConfigSerializer.cs          # Serializer interface
-├── ObservableField.cs            # Reactive field wrapper
-├── ObservableList.cs             # Reactive list wrapper
-├── ObservableDictionary.cs       # Reactive dictionary wrapper
-├── floatP.cs                     # Deterministic floating-point type
-├── MathfloatP.cs                 # Math library for floatP
-├── EnumSelector.cs               # Enum dropdown stored by name
-├── UnitySerializedDictionary.cs  # Dictionary serialization for Inspector
-├── SerializableType.cs           # Type serialization for Inspector
-└── ValueData.cs                  # Vector extensions (Pair, StructPair)
+├── ConfigServices/
+│   ├── ConfigsProvider.cs        # Type-safe config storage
+│   ├── ConfigsSerializer.cs      # JSON serialization for backend sync
+│   ├── ConfigsScriptableObject.cs # ScriptableObject-based config containers
+│   ├── Interfaces/               # IConfigsProvider, IConfigsAdder, etc.
+│   └── Validation/               # Validation attributes (Editor validation lives in Editor/)
+├── Observables/
+│   ├── ObservableField.cs        # Reactive field wrapper
+│   ├── ObservableList.cs         # Reactive list wrapper
+│   ├── ObservableDictionary.cs   # Reactive dictionary wrapper
+│   └── ComputedField.cs          # Auto-updating computed values
+├── Math/
+│   ├── floatP.cs                 # Deterministic floating-point type
+│   └── MathfloatP.cs             # Math library for floatP
+├── Serialization/
+│   ├── UnitySerializedDictionary.cs # Dictionary serialization for Inspector
+│   └── SerializableType.cs       # Type serialization for Inspector
+└── Utilities/
+    └── EnumSelector.cs           # Enum dropdown stored by name
 
 Editor/
 ├── EnumSelectorPropertyDrawer.cs # Custom drawer for EnumSelector
-└── ReadOnlyPropertyDrawer.cs     # ReadOnly attribute drawer
+├── ReadOnlyPropertyDrawer.cs     # ReadOnly attribute drawer
+└── Validation/                   # EditorConfigValidator + ValidationResult
 
 Samples~/
 └── Enum Selector Example/        # EnumSelector usage sample
@@ -114,6 +121,7 @@ Samples~/
 | **ObservableField** | Reactive wrapper for single values with change callbacks |
 | **ObservableList** | Reactive wrapper for lists with add/remove/update callbacks |
 | **ObservableDictionary** | Reactive wrapper for dictionaries with key-based callbacks |
+| **ComputedField** | Auto-updating derived values that track dependencies |
 | **floatP** | Deterministic floating-point type for cross-platform math |
 | **MathfloatP** | Math functions (Sin, Cos, Sqrt, etc.) for floatP type |
 | **EnumSelector** | Enum dropdown that survives enum value changes |
@@ -127,7 +135,7 @@ Samples~/
 
 ```csharp
 using System;
-using GameLovers.ConfigsProvider;
+using GameLovers.GameData;
 
 [Serializable]
 public struct EnemyConfig
@@ -142,7 +150,7 @@ public struct EnemyConfig
 ### 2. Initialize the Provider
 
 ```csharp
-using GameLovers.ConfigsProvider;
+using GameLovers.GameData;
 
 public class GameBootstrap
 {
@@ -160,7 +168,6 @@ public class GameBootstrap
         };
         
         _configsProvider.AddConfigs(enemy => enemy.Id, enemies);
-        _configsProvider.SetVersion(1);
     }
 }
 ```
@@ -187,7 +194,7 @@ if (_configsProvider.TryGetConfig<EnemyConfig>(3, out var enemy))
 ### 4. Use Observable State
 
 ```csharp
-using GameLovers;
+using GameLovers.GameData;
 
 public class PlayerController
 {
@@ -227,6 +234,7 @@ Type-safe, high-performance configuration storage with O(1) lookups.
 - Stores configs in pre-built dictionaries for instant access
 - Supports versioning for backend sync scenarios
 - Singleton configs supported via `AddSingletonConfig<T>()`
+- Zero-allocation enumeration for hot paths
 
 ```csharp
 var provider = new ConfigsProvider();
@@ -240,12 +248,33 @@ provider.AddSingletonConfig(new GameSettings { Difficulty = 2 });
 // Access configs
 var item = provider.GetConfig<ItemConfig>(42);              // By ID
 var settings = provider.GetConfig<GameSettings>();          // Singleton
-var allItems = provider.GetConfigsList<ItemConfig>();       // As list
+var allItems = provider.GetConfigsList<ItemConfig>();       // As list (allocates)
 var itemDict = provider.GetConfigsDictionary<ItemConfig>(); // As dictionary
 
-// Version management
-provider.SetVersion(12345);
+// Version is read-only at runtime (set via UpdateTo during deserialization)
 ulong version = provider.Version;
+```
+
+**Zero-Allocation Enumeration:**
+
+For performance-critical code paths, use `EnumerateConfigs<T>()` to avoid list allocations:
+
+```csharp
+// ❌ Allocates a new list every call
+foreach (var enemy in provider.GetConfigsList<EnemyConfig>())
+{
+    ProcessEnemy(enemy);
+}
+
+// ✅ Zero allocations - enumerate directly over internal storage
+foreach (var enemy in provider.EnumerateConfigs<EnemyConfig>())
+{
+    ProcessEnemy(enemy);
+}
+
+// Works with LINQ (but LINQ itself may allocate)
+var bosses = provider.EnumerateConfigs<EnemyConfig>()
+    .Where(e => e.IsBoss);
 ```
 
 ---
@@ -258,6 +287,7 @@ JSON serialization for client/server config synchronization.
 - Uses `Newtonsoft.Json` for reliable serialization
 - Supports `[IgnoreServerSerialization]` attribute to exclude configs
 - Automatically handles enum serialization as strings
+- Two security modes for different trust levels
 
 ```csharp
 var serializer = new ConfigsSerializer();
@@ -280,6 +310,58 @@ serializer.Deserialize(json, existingProvider);
 public struct ClientOnlyConfig
 {
     public string LocalSetting;
+}
+```
+
+**Security Modes:**
+
+The serializer supports two security modes for different trust scenarios:
+
+```csharp
+// Secure mode (default) - Safe for untrusted payloads (e.g., external APIs)
+// Does NOT include type information in JSON
+var secureSerializer = new ConfigsSerializer(ConfigsSerializerMode.Secure);
+
+// TrustedOnly mode - For internal/trusted sources only
+// Includes type names for polymorphic deserialization
+// ⚠️ WARNING: Never use with untrusted input (security risk)
+var trustedSerializer = new ConfigsSerializer(ConfigsSerializerMode.TrustedOnly);
+```
+
+**Backend Sync Workflow:**
+
+Complete example for syncing configs from a backend server:
+
+```csharp
+public class ConfigSyncService
+{
+    private readonly ConfigsProvider _provider;
+    private readonly ConfigsSerializer _serializer;
+    
+    public ConfigSyncService(ConfigsProvider provider)
+    {
+        _provider = provider;
+        _serializer = new ConfigsSerializer(ConfigsSerializerMode.Secure);
+    }
+    
+    public async Task SyncFromServer(string serverUrl)
+    {
+        // 1. Fetch JSON payload from server
+        string json = await FetchConfigsJson(serverUrl);
+        
+        // 2. Check version before applying
+        var payload = JsonConvert.DeserializeObject<ConfigsPayload>(json);
+        if (payload.Version <= _provider.Version)
+        {
+            Debug.Log("Configs already up to date");
+            return;
+        }
+        
+        // 3. Deserialize into existing provider (triggers observers)
+        _serializer.Deserialize(json, _provider);
+        
+        Debug.Log($"Synced configs to version {_provider.Version}");
+    }
 }
 ```
 
@@ -363,6 +445,104 @@ stats["health"] = 90;
 stats.Remove("health");
 ```
 
+#### ComputedField
+
+Automatically computed values that update when their dependencies change.
+
+```csharp
+using GameLovers.GameData;
+
+// Source observable fields
+var baseHealth = new ObservableField<int>(100);
+var bonusHealth = new ObservableField<int>(25);
+
+// Computed field automatically tracks dependencies
+var totalHealth = new ComputedField<int>(() => baseHealth.Value + bonusHealth.Value);
+
+// Subscribe to computed value changes
+totalHealth.Observe((prev, curr) => Debug.Log($"Total HP: {prev} → {curr}"));
+
+// Changing any dependency automatically updates the computed field
+baseHealth.Value = 120;  // Triggers: "Total HP: 125 → 145"
+bonusHealth.Value = 50;  // Triggers: "Total HP: 145 → 170"
+
+// Access current value (recomputes if dirty)
+int currentTotal = totalHealth.Value;
+
+// Cleanup when done
+totalHealth.Dispose();
+```
+
+**Key Points:**
+- Dependencies are tracked automatically during computation
+- Lazy evaluation: only recomputes when accessed after a dependency change
+- Supports chaining: computed fields can depend on other computed fields
+- Call `Dispose()` to unsubscribe from all dependencies
+
+##### Fluent API
+
+For more ergonomic computed field creation, use the extension methods or static factory:
+
+```csharp
+using GameLovers.GameData;
+
+var baseHealth = new ObservableField<int>(100);
+var bonusHealth = new ObservableField<int>(25);
+var multiplier = new ObservableField<float>(1.5f);
+
+// Select: Transform a single field
+var displayHealth = baseHealth.Select(h => $"HP: {h}");
+
+// CombineWith: Combine two fields
+var totalHealth = baseHealth.CombineWith(bonusHealth, (a, b) => a + b);
+
+// CombineWith: Combine three fields  
+var finalHealth = baseHealth.CombineWith(bonusHealth, multiplier, 
+    (a, b, m) => (int)((a + b) * m));
+
+// Static factory: Combine multiple fields explicitly
+var combined = ObservableField.Combine(baseHealth, bonusHealth, (a, b) => a + b);
+
+// All computed fields update automatically when any source changes
+baseHealth.Value = 120;  // All computed fields recalculate
+```
+
+#### Batched Updates
+
+Use `BeginBatch()` to make multiple changes without triggering intermediate callbacks:
+
+```csharp
+var health = new ObservableField<int>(100);
+var mana = new ObservableField<int>(50);
+var stamina = new ObservableField<int>(75);
+
+// Without batching: each change triggers observers immediately
+health.Value = 80;   // Observer called
+mana.Value = 40;     // Observer called
+stamina.Value = 60;  // Observer called
+
+// With batching: observers called once after all changes
+using (health.BeginBatch())
+{
+    health.Value = 80;
+    mana.Value = 40;
+    stamina.Value = 60;
+}
+// All observers called here, after the batch completes
+
+// Useful for atomic state transitions
+public void ApplyDamage(int damage, int manaCost)
+{
+    using (_health.BeginBatch())
+    {
+        _health.Value -= damage;
+        _mana.Value -= manaCost;
+        _lastHitTime.Value = Time.time;
+    }
+    // UI updates once with final state, not intermediate values
+}
+```
+
 ---
 
 ### Deterministic floatP
@@ -376,7 +556,7 @@ Deterministic floating-point type for cross-platform reproducible calculations.
 - Full operator support (+, -, *, /, %, comparisons)
 
 ```csharp
-using GameLovers;
+using GameLovers.GameData;
 
 // Implicit conversion from float
 floatP a = 3.14f;
@@ -402,10 +582,37 @@ uint raw = a.RawValue;
 floatP restored = floatP.FromRaw(raw);
 ```
 
+**Verifying Cross-Platform Determinism:**
+
+To verify determinism across platforms, compare `RawValue` (the IEEE 754 bit representation) rather than float values:
+
+```csharp
+// On platform A: compute and log raw value
+floatP result = MathfloatP.Sin(angle) * speed;
+Debug.Log($"Result raw: {result.RawValue}");  // e.g., 1082130432
+
+// On platform B: same computation should produce identical raw value
+// Compare uint values, not float approximations
+Assert.AreEqual(expectedRawValue, result.RawValue);
+
+// For replays/networking: serialize RawValue, not float
+public void SerializePosition(BinaryWriter writer, floatP x, floatP y)
+{
+    writer.Write(x.RawValue);
+    writer.Write(y.RawValue);
+}
+
+public (floatP x, floatP y) DeserializePosition(BinaryReader reader)
+{
+    return (floatP.FromRaw(reader.ReadUInt32()), 
+            floatP.FromRaw(reader.ReadUInt32()));
+}
+```
+
 **MathfloatP Functions:**
 
 ```csharp
-using GameLovers;
+using GameLovers.GameData;
 
 floatP x = 1.5f;
 
@@ -445,7 +652,7 @@ Dictionary type that can be edited in the Unity Inspector.
 
 ```csharp
 using System;
-using GameLovers;
+using GameLovers.GameData;
 
 // Create concrete dictionary type
 [Serializable]
@@ -483,7 +690,7 @@ Enum dropdown that stores the name instead of the value, surviving enum changes.
 
 ```csharp
 using System;
-using GameLovers;
+using GameLovers.GameData;
 
 public enum ItemType { Weapon, Armor, Consumable }
 
@@ -551,14 +758,26 @@ displayScores.Observe((key, prev, curr, type) => UpdateUI(key, curr));
 
 ## Samples
 
-### Enum Selector Example
+Import samples via **Package Manager** → **GameLovers GameData** → **Samples**
 
-Import via Package Manager → GameLovers GameData → Samples → Enum Selector Example
+### Enum Selector Example
 
 Demonstrates:
 - Creating concrete `EnumSelector<T>` types
 - Custom `PropertyDrawer` for Inspector dropdown
 - Runtime enum access and validation
+
+### Planned Samples
+
+Additional samples are in development:
+
+| Sample | Description |
+|--------|-------------|
+| **Reactive UI Demo** | Health bars and stats that update automatically using `ObservableField` and `ComputedField` |
+| **Designer Workflow** | ScriptableObject-based config editing with `UnitySerializedDictionary` and runtime loading |
+| **Validation & Migration** | Config validation attributes and schema migration patterns |
+
+See `SAMPLES_BACKLOG.md` for detailed specifications.
 
 ---
 

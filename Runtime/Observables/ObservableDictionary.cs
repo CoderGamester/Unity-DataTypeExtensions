@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
-namespace GameLovers.Observables
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// A simple dictionary with the possibility to observe changes to it's elements defined <see cref="ObservableUpdateType"/> rules
@@ -20,6 +20,12 @@ namespace GameLovers.Observables
 		/// Defines the configuration for the observable update done when updating elements in this dictionary
 		/// </summary>
 		ObservableUpdateFlag ObservableUpdateFlag { get; set; }
+
+		/// <summary>
+		/// Starts a batch update for this dictionary.
+		/// Notifications will be suppressed until the returned object is disposed.
+		/// </summary>
+		IDisposable BeginBatch();
 	}
 
 	/// <inheritdoc cref="IObservableDictionary"/>
@@ -188,15 +194,64 @@ namespace GameLovers.Observables
 	}
 
 	/// <inheritdoc />
-	public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TValue>
+	public class ObservableDictionary<TKey, TValue> : IObservableDictionary<TKey, TValue>, IBatchable, IComputedDependency
 	{
 		private readonly IDictionary<TKey, IList<Action<TKey, TValue, TValue, ObservableUpdateType>>> _keyUpdateActions =
 			new Dictionary<TKey, IList<Action<TKey, TValue, TValue, ObservableUpdateType>>>();
 		private readonly IList<Action<TKey, TValue, TValue, ObservableUpdateType>> _updateActions =
 			new List<Action<TKey, TValue, TValue, ObservableUpdateType>>();
+		private readonly List<Action> _dependencyActions = new List<Action>();
+		private bool _isBatching;
 
 		/// <inheritdoc />
-		public int Count => Dictionary.Count;
+		public int Count
+		{
+			get
+			{
+				ComputedTracker.OnRead(this);
+				return Dictionary.Count;
+			}
+		}
+
+		/// <inheritdoc />
+		void IComputedDependency.Subscribe(Action onDependencyChanged)
+		{
+			_dependencyActions.Add(onDependencyChanged);
+		}
+
+		/// <inheritdoc />
+		void IComputedDependency.Unsubscribe(Action onDependencyChanged)
+		{
+			_dependencyActions.Remove(onDependencyChanged);
+		}
+
+		/// <inheritdoc />
+		public IDisposable BeginBatch()
+		{
+			var batch = new ObservableBatch();
+			batch.Add(this);
+			return batch;
+		}
+
+		/// <inheritdoc />
+		void IBatchable.SuppressNotifications()
+		{
+			_isBatching = true;
+		}
+
+		/// <inheritdoc />
+		void IBatchable.ResumeNotifications()
+		{
+			if (_isBatching)
+			{
+				_isBatching = false;
+				foreach (var pair in Dictionary)
+				{
+					InvokeUpdate(pair.Key, default);
+				}
+			}
+		}
+
 		/// <inheritdoc />
 		public ObservableUpdateFlag ObservableUpdateFlag { get; set; }
 		/// <inheritdoc />
@@ -224,7 +279,11 @@ namespace GameLovers.Observables
 		/// <inheritdoc cref="Dictionary{TKey,TValue}.this" />
 		public TValue this[TKey key]
 		{
-			get => Dictionary[key];
+			get
+			{
+				ComputedTracker.OnRead(this);
+				return Dictionary[key];
+			}
 			set
 			{
 				var previousValue = Dictionary[key];
@@ -250,12 +309,14 @@ namespace GameLovers.Observables
 		/// <inheritdoc />
 		public bool TryGetValue(TKey key, out TValue value)
 		{
+			ComputedTracker.OnRead(this);
 			return Dictionary.TryGetValue(key, out value);
 		}
 
 		/// <inheritdoc />
 		public bool ContainsKey(TKey key)
 		{
+			ComputedTracker.OnRead(this);
 			return Dictionary.ContainsKey(key);
 		}
 
@@ -263,6 +324,11 @@ namespace GameLovers.Observables
 		public virtual void Add(TKey key, TValue value)
 		{
 			Dictionary.Add(key, value);
+
+			if (_isBatching)
+			{
+				return;
+			}
 
 			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly && _keyUpdateActions.TryGetValue(key, out var actions))
 			{
@@ -279,6 +345,11 @@ namespace GameLovers.Observables
 					_updateActions[i](key, default, value, ObservableUpdateType.Added);
 				}
 			}
+
+			for (var i = 0; i < _dependencyActions.Count; i++)
+			{
+				_dependencyActions[i].Invoke();
+			}
 		}
 
 		/// <inheritdoc />
@@ -287,6 +358,11 @@ namespace GameLovers.Observables
 			if (!Dictionary.TryGetValue(key, out var value) || !Dictionary.Remove(key))
 			{
 				return false;
+			}
+
+			if (_isBatching)
+			{
+				return true;
 			}
 
 			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly && _keyUpdateActions.TryGetValue(key, out var actions))
@@ -314,36 +390,49 @@ namespace GameLovers.Observables
 				}
 			}
 
+			for (var i = 0; i < _dependencyActions.Count; i++)
+			{
+				_dependencyActions[i].Invoke();
+			}
+
 			return true;
 		}
 
 		/// <inheritdoc />
 		public virtual void Clear()
 		{
-			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly)
+			if (!_isBatching)
 			{
-				// Create a copy in case that one of the callbacks modifies the list (Ex: removing a subscriber)
-				var copy = new Dictionary<TKey, IList<Action<TKey, TValue, TValue, ObservableUpdateType>>>(_keyUpdateActions);
-
-				foreach (var data in copy)
+				if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly)
 				{
-					var listCopy = data.Value.ToList();
-					for (var i = 0; i < listCopy.Count; i++)
+					// Create a copy in case that one of the callbacks modifies the list (Ex: removing a subscriber)
+					var copy = new Dictionary<TKey, IList<Action<TKey, TValue, TValue, ObservableUpdateType>>>(_keyUpdateActions);
+
+					foreach (var data in copy)
 					{
-						listCopy[i](data.Key, Dictionary[data.Key], default, ObservableUpdateType.Removed);
+						var listCopy = data.Value.ToList();
+						for (var i = 0; i < listCopy.Count; i++)
+						{
+							listCopy[i](data.Key, Dictionary[data.Key], default, ObservableUpdateType.Removed);
+						}
 					}
 				}
-			}
 
-			if (ObservableUpdateFlag != ObservableUpdateFlag.KeyUpdateOnly)
-			{
-				foreach (var data in Dictionary)
+				if (ObservableUpdateFlag != ObservableUpdateFlag.KeyUpdateOnly)
 				{
-					var listCopy = _updateActions.ToList();
-					for (var i = 0; i < listCopy.Count; i++)
+					foreach (var data in Dictionary)
 					{
-						listCopy[i](data.Key, data.Value, default, ObservableUpdateType.Removed);
+						var listCopy = _updateActions.ToList();
+						for (var i = 0; i < listCopy.Count; i++)
+						{
+							listCopy[i](data.Key, data.Value, default, ObservableUpdateType.Removed);
+						}
 					}
+				}
+
+				for (var i = 0; i < _dependencyActions.Count; i++)
+				{
+					_dependencyActions[i].Invoke();
 				}
 			}
 
@@ -447,6 +536,11 @@ namespace GameLovers.Observables
 
 		protected void InvokeUpdate(TKey key, TValue previousValue)
 		{
+			if (_isBatching)
+			{
+				return;
+			}
+
 			var value = Dictionary[key];
 
 			if (ObservableUpdateFlag != ObservableUpdateFlag.UpdateOnly && _keyUpdateActions.TryGetValue(key, out var actions))
@@ -463,6 +557,11 @@ namespace GameLovers.Observables
 				{
 					_updateActions[i](key, previousValue, value, ObservableUpdateType.Updated);
 				}
+			}
+
+			for (var i = 0; i < _dependencyActions.Count; i++)
+			{
+				_dependencyActions[i].Invoke();
 			}
 		}
 

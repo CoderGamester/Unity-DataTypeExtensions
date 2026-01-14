@@ -4,9 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using GameLovers.Serialization;
 
-namespace GameLovers.Configs
+namespace GameLovers.GameData
 {
 
 	/// <summary>
@@ -27,24 +26,48 @@ namespace GameLovers.Configs
 	public class IgnoreServerSerialization : Attribute { }
 
 	/// <summary>
+	/// Defines the security mode for serialization.
+	/// </summary>
+	public enum SerializationSecurityMode
+	{
+		/// <summary>
+		/// Default mode. Uses TypeNameHandling.Auto for polymorphic serialization.
+		/// Should only be used for trusted data.
+		/// </summary>
+		TrustedOnly,
+		/// <summary>
+		/// Secure mode. Uses TypeNameHandling.None and requires explicit type whitelisting.
+		/// Suitable for remote payloads.
+		/// </summary>
+		Secure
+	}
+
+	/// <summary>
 	/// Struct to represent what configs are serialized for the game.
 	/// This configs are to be shared between client & server.
 	/// </summary>
 	public class ConfigsSerializer : IConfigsSerializer
 	{
-		private static JsonSerializerSettings settings = new JsonSerializerSettings()
+		private readonly JsonSerializerSettings _settings;
+		private readonly SerializationSecurityMode _securityMode;
+
+		public ConfigsSerializer(SerializationSecurityMode mode = SerializationSecurityMode.TrustedOnly)
 		{
-			TypeNameHandling = TypeNameHandling.Auto,
-			Converters = new List<JsonConverter>()
+			_securityMode = mode;
+			_settings = new JsonSerializerSettings()
 			{
-				new StringEnumConverter(),
-				new ColorJsonConverter(),
-				new Vector2JsonConverter(),
-				new Vector3JsonConverter(),
-				new Vector4JsonConverter(),
-				new QuaternionJsonConverter()
-			}
-		};
+				TypeNameHandling = mode == SerializationSecurityMode.Secure ? TypeNameHandling.None : TypeNameHandling.Auto,
+				Converters = new List<JsonConverter>()
+				{
+					new StringEnumConverter(),
+					new ColorJsonConverter(),
+					new Vector2JsonConverter(),
+					new Vector3JsonConverter(),
+					new Vector4JsonConverter(),
+					new QuaternionJsonConverter()
+				}
+			};
+		}
 
 		/// <inheritdoc />
 		public string Serialize(IConfigsProvider cfg, string version)
@@ -69,7 +92,7 @@ namespace GameLovers.Configs
 
 				serializedConfig.Configs[type] = configs[type];
 			}
-			return JsonConvert.SerializeObject(serializedConfig, settings);
+			return JsonConvert.SerializeObject(serializedConfig, _settings);
 		}
 
 		/// <inheritdoc />
@@ -82,7 +105,7 @@ namespace GameLovers.Configs
 		
 		public void Deserialize(string serialized, IConfigsAdder cfg)
 		{
-			var configs = JsonConvert.DeserializeObject<SerializedConfigs>(serialized, settings);
+			var configs = JsonConvert.DeserializeObject<SerializedConfigs>(serialized, _settings);
 			if (!ulong.TryParse(configs.Version, out var versionNumber))
 			{
 				versionNumber = 0;

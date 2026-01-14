@@ -1,4 +1,4 @@
-namespace GameLovers.Observables
+namespace GameLovers.GameData
 {
 	public enum ObservableUpdateType
 	{

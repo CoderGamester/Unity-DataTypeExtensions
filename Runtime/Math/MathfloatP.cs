@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace GameLovers.Math
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Math calculation for the deterministic floating point <see cref="floatP"/>
@@ -68,6 +68,142 @@ namespace GameLovers.Math
 			{
 				return val2;
 			}
+		}
+
+		/// <summary>
+		/// Clamps the given value between the given minimum and maximum values.
+		/// Returns the given value if it is within the range.
+		/// Returns min if the value is less than min.
+		/// Returns max if the value is greater than max.
+		/// </summary>
+		public static floatP Clamp(floatP value, floatP min, floatP max)
+		{
+			if (value < min)
+			{
+				return min;
+			}
+			if (value > max)
+			{
+				return max;
+			}
+			return value;
+		}
+
+		/// <summary>
+		/// Clamps the given value between 0 and 1.
+		/// </summary>
+		public static floatP Clamp01(floatP value)
+		{
+			if (value < floatP.Zero)
+			{
+				return floatP.Zero;
+			}
+			if (value > floatP.One)
+			{
+				return floatP.One;
+			}
+			return value;
+		}
+
+		/// <summary>
+		/// Linearly interpolates between a and b by t.
+		/// t is clamped to the range [0, 1].
+		/// </summary>
+		public static floatP Lerp(floatP a, floatP b, floatP t)
+		{
+			t = Clamp01(t);
+			return a + (b - a) * t;
+		}
+
+		/// <summary>
+		/// Linearly interpolates between a and b by t.
+		/// t is not clamped.
+		/// </summary>
+		public static floatP LerpUnclamped(floatP a, floatP b, floatP t)
+		{
+			return a + (b - a) * t;
+		}
+
+		/// <summary>
+		/// Interpolates between a and b by t with smoothing at the limits.
+		/// </summary>
+		public static floatP SmoothStep(floatP from, floatP to, floatP t)
+		{
+			t = Clamp01(t);
+			t = (floatP)(-2.0f) * t * t * t + (floatP)3.0f * t * t;
+			return to * t + from * (floatP.One - t);
+		}
+
+		/// <summary>
+		/// Calculates the linear parameter t that produces the interpolant value within the range [a, b].
+		/// </summary>
+		public static floatP InverseLerp(floatP a, floatP b, floatP value)
+		{
+			if (a != b)
+			{
+				return Clamp01((value - a) / (b - a));
+			}
+			return floatP.Zero;
+		}
+
+		/// <summary>
+		/// Moves a value current towards target.
+		/// </summary>
+		public static floatP MoveTowards(floatP current, floatP target, floatP maxDelta)
+		{
+			if (Abs(target - current) <= maxDelta)
+			{
+				return target;
+			}
+			return current + Sign(target - current) * maxDelta;
+		}
+
+		/// <summary>
+		/// Returns the sign of f.
+		/// Returns 1 if f is positive or zero, -1 if f is negative.
+		/// </summary>
+		public static int Sign(floatP f)
+		{
+			return f >= floatP.Zero ? 1 : -1;
+		}
+
+		/// <summary>
+		/// Loops the value t, so that it is never larger than length and never smaller than 0.
+		/// </summary>
+		public static floatP Repeat(floatP t, floatP length)
+		{
+			return Clamp(t - Floor(t / length) * length, floatP.Zero, length);
+		}
+
+		/// <summary>
+		/// Ping-pongs the value t, so that it is never larger than length and never smaller than 0.
+		/// </summary>
+		public static floatP PingPong(floatP t, floatP length)
+		{
+			t = Repeat(t, length * (floatP)2.0f);
+			return length - Abs(t - length);
+		}
+
+		/// <summary>
+		/// Calculates the shortest difference between two given angles given in degrees.
+		/// </summary>
+		public static floatP DeltaAngle(floatP current, floatP target)
+		{
+			floatP delta = Repeat(target - current, (floatP)360.0f);
+			if (delta > (floatP)180.0f)
+			{
+				delta -= (floatP)360.0f;
+			}
+			return delta;
+		}
+
+		/// <summary>
+		/// Same as Lerp but makes sure the values interpolate correctly when they wrap around 360 degrees.
+		/// </summary>
+		public static floatP LerpAngle(floatP a, floatP b, floatP t)
+		{
+			floatP delta = DeltaAngle(a, b);
+			return a + delta * Clamp01(t);
 		}
 
 		/// <summary>
@@ -1194,7 +1330,7 @@ namespace GameLovers.Math
 		/// </summary>
 		public static floatP Log10(floatP x)
 		{
-			return Log(x, 2);
+			return Log(x, 10);
 		}
 
 		/// <summary>

@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace GameLovers.Serialization
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// This object contains a pair of data.

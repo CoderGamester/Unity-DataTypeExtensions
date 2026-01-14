@@ -1,4 +1,4 @@
-using GameLovers;
+using GameLovers.GameData;
 using System;
 
 // ReSharper disable once CheckNamespace

@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-namespace GameLovers.Math
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Floating Point representation is identical to IEEE binary32 floatingpoints.

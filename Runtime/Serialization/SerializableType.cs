@@ -1,9 +1,8 @@
 using System;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
-namespace GameLovers.Serialization
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// <see cref="Type"/> that can be viewed, modified and saved from the inspector.

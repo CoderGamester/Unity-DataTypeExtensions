@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace GameLovers.Observables
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// A list with the possibility to observe changes to it's elements defined <see cref="ObservableUpdateType"/> rules
@@ -26,6 +26,12 @@ namespace GameLovers.Observables
 		/// Looks up and return the data that is associated with the given <paramref name="index"/>
 		/// </summary>
 		T this[int index] { get; }
+
+		/// <summary>
+		/// Starts a batch update for this list. 
+		/// Notifications will be suppressed until the returned object is disposed.
+		/// </summary>
+		IDisposable BeginBatch();
 
 		/// <summary>
 		/// Requests this list as a <see cref="IReadOnlyList{T}"/>
@@ -143,14 +149,20 @@ namespace GameLovers.Observables
 	}
 
 	/// <inheritdoc />
-	public class ObservableList<T> : IObservableList<T>
+	public class ObservableList<T> : IObservableList<T>, IBatchable, IComputedDependency
 	{
 		private readonly IList<Action<int, T, T, ObservableUpdateType>> _updateActions = new List<Action<int, T, T, ObservableUpdateType>>();
+		private readonly List<Action> _dependencyActions = new List<Action>();
+		private bool _isBatching;
 
 		/// <inheritdoc cref="IObservableList{T}.this" />
 		public T this[int index]
 		{
-			get => List[index];
+			get
+			{
+				ComputedTracker.OnRead(this);
+				return List[index];
+			}
 			set
 			{
 				var previousValue = List[index];
@@ -162,7 +174,26 @@ namespace GameLovers.Observables
 		}
 
 		/// <inheritdoc />
-		public int Count => List.Count;
+		public int Count
+		{
+			get
+			{
+				ComputedTracker.OnRead(this);
+				return List.Count;
+			}
+		}
+
+		/// <inheritdoc />
+		void IComputedDependency.Subscribe(Action onDependencyChanged)
+		{
+			_dependencyActions.Add(onDependencyChanged);
+		}
+
+		/// <inheritdoc />
+		void IComputedDependency.Unsubscribe(Action onDependencyChanged)
+		{
+			_dependencyActions.Remove(onDependencyChanged);
+		}
 		/// <inheritdoc />
 		public IReadOnlyList<T> ReadOnlyList => new List<T>(List);
 
@@ -173,6 +204,33 @@ namespace GameLovers.Observables
 		public ObservableList(IList<T> list)
 		{
 			List = list as List<T> ?? list.ToList();
+		}
+
+		/// <inheritdoc />
+		public IDisposable BeginBatch()
+		{
+			var batch = new ObservableBatch();
+			batch.Add(this);
+			return batch;
+		}
+
+		/// <inheritdoc />
+		void IBatchable.SuppressNotifications()
+		{
+			_isBatching = true;
+		}
+
+		/// <inheritdoc />
+		void IBatchable.ResumeNotifications()
+		{
+			if (_isBatching)
+			{
+				_isBatching = false;
+				for (var i = 0; i < List.Count; i++)
+				{
+					InvokeUpdate(i, default);
+				}
+			}
 		}
 
 		/// <summary>
@@ -205,12 +263,14 @@ namespace GameLovers.Observables
 		/// <inheritdoc />
 		public bool Contains(T value)
 		{
+			ComputedTracker.OnRead(this);
 			return List.Contains(value);
 		}
 
 		/// <inheritdoc />
 		public int IndexOf(T value)
 		{
+			ComputedTracker.OnRead(this);
 			return List.IndexOf(value);
 		}
 
@@ -218,6 +278,11 @@ namespace GameLovers.Observables
 		public virtual void Add(T data)
 		{
 			List.Add(data);
+
+			if (_isBatching)
+			{
+				return;
+			}
 
 			for (var i = 0; i < _updateActions.Count; i++)
 			{
@@ -247,6 +312,11 @@ namespace GameLovers.Observables
 
 			List.RemoveAt(index);
 
+			if (_isBatching)
+			{
+				return;
+			}
+
 			for (var i = _updateActions.Count - 1; i > -1; i--)
 			{
 				var action = _updateActions[i];
@@ -261,14 +331,17 @@ namespace GameLovers.Observables
 		/// <inheritdoc />
 		public virtual void Clear()
 		{
-			// Create a copy in case that one of the callbacks modifies the list (Ex: removing a subscriber)
-			var copy = _updateActions.ToList();
-
-			for (var i = copy.Count - 1; i > -1; i--)
+			if (!_isBatching)
 			{
-				for (var j = 0; j < List.Count; j++)
+				// Create a copy in case that one of the callbacks modifies the list (Ex: removing a subscriber)
+				var copy = _updateActions.ToList();
+
+				for (var i = copy.Count - 1; i > -1; i--)
 				{
-					copy[i](j, List[j], default, ObservableUpdateType.Removed);
+					for (var j = 0; j < List.Count; j++)
+					{
+						copy[i](j, List[j], default, ObservableUpdateType.Removed);
+					}
 				}
 			}
 
@@ -320,11 +393,21 @@ namespace GameLovers.Observables
 
 		protected void InvokeUpdate(int index, T previousValue)
 		{
+			if (_isBatching)
+			{
+				return;
+			}
+
 			var data = List[index];
 
 			for (var i = 0; i < _updateActions.Count; i++)
 			{
 				_updateActions[i](index, previousValue, data, ObservableUpdateType.Updated);
+			}
+
+			for (var i = 0; i < _dependencyActions.Count; i++)
+			{
+				_dependencyActions[i].Invoke();
 			}
 		}
 

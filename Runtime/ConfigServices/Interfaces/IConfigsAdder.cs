@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace GameLovers.Configs
+namespace GameLovers.GameData
 {
 	/// <inheritdoc />
 	/// <remarks>
@@ -24,11 +24,11 @@ namespace GameLovers.Configs
 		/// <summary>
 		/// Adds the given dictionary of configuration lists to the config.
 		/// </summary>
-		public void AddAllConfigs(IReadOnlyDictionary<Type, IEnumerable> configs);
+		void AddAllConfigs(IReadOnlyDictionary<Type, IEnumerable> configs);
 
 		/// <summary>
 		/// Updates the given configuration to the given version
 		/// </summary>
-		public void UpdateTo(ulong version, IReadOnlyDictionary<Type, IEnumerable> toUpdate);
+		void UpdateTo(ulong version, IReadOnlyDictionary<Type, IEnumerable> toUpdate);
 	}
 }

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace GameLovers.Serialization
+namespace GameLovers.GameData
 {
 	/// <summary>
 	/// Unity does not support Dictionary serialization out of the box, but by
