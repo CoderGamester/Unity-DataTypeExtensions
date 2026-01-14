@@ -9,7 +9,8 @@
   "type": "library",
   "hideInEditor": false,
   "dependencies": {
-    "com.unity.nuget.newtonsoft-json": "3.2.1"
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "com.cysharp.unitask": "2.5.10"
   },
   "samples": [
     {

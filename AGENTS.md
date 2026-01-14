@@ -6,6 +6,7 @@
 - **Assembly**: `Runtime/GameLovers.GameData.asmdef` (note: **allowUnsafeCode = true**)
 - **Dependencies** (see `package.json`)
   - `com.unity.nuget.newtonsoft-json` (**3.2.1**)
+  - `com.cysharp.unitask` (**2.5.10**)
 
 This package provides core **game design data** utilities:
 - **Config storage + versioning** (`ConfigsProvider`)
@@ -60,6 +61,7 @@ For user-facing docs, treat `README.md` as the primary entry point. This file is
 ## 6. External Package Sources (for API lookups)
 Prefer local Unity/UPM sources when needed:
 - Unity Newtonsoft: `Library/PackageCache/com.unity.nuget.newtonsoft-json/`
+- UniTask: `Library/PackageCache/com.cysharp.unitask/`
 
 ## 7. Dev Workflows (common changes)
 - **Add a new config type**: mark `[Serializable]` (or `[IgnoreServerSerialization]`), decide singleton vs id-keyed, add tests.
