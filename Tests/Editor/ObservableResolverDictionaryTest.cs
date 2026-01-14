@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using GameLovers;
+using GameLovers.Observables;
 using NSubstitute;
 using NUnit.Framework;
 using UnityEngine;

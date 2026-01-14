@@ -1,4 +1,5 @@
 using GameLovers;
+using GameLovers.Observables;
 using NSubstitute;
 using NUnit.Framework;
 

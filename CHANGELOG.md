@@ -4,7 +4,7 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-01-13
+## [1.0.0] - 2026-01-14
 
 **BREAKING**:
 - Package renamed from `com.gamelovers.dataextensions` to `com.gamelovers.gamedata`
@@ -16,6 +16,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Added `ConfigsScriptableObject` for ScriptableObject-based config containers
 - Added `IConfigsProvider`, `IConfigsAdder`, `IConfigsContainer` interfaces
 - Added Newtonsoft.Json dependency for serialization
+- Added Unity 6 UI Toolkit support for `ReadOnlyPropertyDrawer` and `EnumSelectorPropertyDrawer`
+- Added `Runtime/link.xml` to prevent code stripping of core serialization logic
+- Added Newtonsoft JSON converters for `Color`, `Vector2`, `Vector3`, `Vector4`, and `Quaternion` to `ConfigsSerializer`
+
+**Changed**:
+- **BREAKING**: Package renamed from `com.gamelovers.dataextensions` to `com.gamelovers.gamedata`
+- Improved IL2CPP/AOT safety for `SerializableType<T>` with better type resolution
+- Optimized `EnumSelector` with static dictionary caching and O(1) lookups
+
+**Fix**:
+- Fixed `EnumSelector.SetSelection` to correctly handle enums with explicit/non-contiguous values
+- Added graceful duplicate key handling and logging to `ConfigsScriptableObject`
 
 ---
 
