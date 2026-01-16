@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement name="gamedata-reactiveui-root" style="padding-left: 10px; padding-right: 10px; padding-top: 10px; padding-bottom: 10px;">
+        <ui:Label text="UI Toolkit Stats" style="unity-font-style: bold;" />
+        <ui:Label name="baseDamageLabel" text="BaseDamage: --" />
+        <ui:Label name="weaponBonusLabel" text="WeaponBonus: --" />
+        <ui:Label name="damageLabel" text="TotalDamage (computed): --" />
+    </ui:VisualElement>
+</ui:UXML>
+

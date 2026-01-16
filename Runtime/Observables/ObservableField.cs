@@ -63,21 +63,7 @@ namespace GameLovers.GameData
 	}
 
 	/// <inheritdoc />
-	/// <remarks>
-	/// A resolver field with the possibility to rebind to new resolver functions
-	/// </remarks>
-	public interface IObservableResolverField<T> : IObservableField<T>
-	{
-		/// <summary>
-		/// Rebinds this field to new resolver functions without losing existing observers
-		/// </summary>
-		/// <param name="fieldResolver">The new getter function for the field</param>
-		/// <param name="fieldSetter">The new setter function for the field</param>
-		void Rebind(Func<T> fieldResolver, Action<T> fieldSetter);
-	}
-
-	/// <inheritdoc />
-	public class ObservableField<T> : IObservableField<T>, IBatchable, IComputedDependency
+	public partial class ObservableField<T> : IObservableField<T>, IBatchable, IComputedDependency
 	{
 		private readonly IList<Action<T, T>> _updateActions = new List<Action<T, T>>();
 		private readonly List<Action> _dependencyActions = new List<Action>();
@@ -106,26 +92,16 @@ namespace GameLovers.GameData
 		public ObservableField()
 		{
 			_value = default;
+			EditorDebug_Register();
 		}
 
 		public ObservableField(T initialValue)
 		{
 			_value = initialValue;
+			EditorDebug_Register();
 		}
 
 		public static implicit operator T(ObservableField<T> value) => value.Value;
-
-		/// <inheritdoc />
-		void IComputedDependency.Subscribe(Action onDependencyChanged)
-		{
-			_dependencyActions.Add(onDependencyChanged);
-		}
-
-		/// <inheritdoc />
-		void IComputedDependency.Unsubscribe(Action onDependencyChanged)
-		{
-			_dependencyActions.Remove(onDependencyChanged);
-		}
 
 		/// <inheritdoc />
 		public IDisposable BeginBatch()
@@ -153,6 +129,18 @@ namespace GameLovers.GameData
 				_isBatching = false;
 				InvokeUpdate(_batchPreviousValue);
 			}
+		}
+
+		/// <inheritdoc />
+		void IComputedDependency.Subscribe(Action onDependencyChanged)
+		{
+			_dependencyActions.Add(onDependencyChanged);
+		}
+
+		/// <inheritdoc />
+		void IComputedDependency.Unsubscribe(Action onDependencyChanged)
+		{
+			_dependencyActions.Remove(onDependencyChanged);
 		}
 
 		/// <inheritdoc />
@@ -205,6 +193,12 @@ namespace GameLovers.GameData
 			InvokeUpdate(Value);
 		}
 
+		/// <summary>
+		/// Gets the current value without triggering dependency tracking.
+		/// Override in derived classes that store values differently.
+		/// </summary>
+		protected virtual T GetCurrentValue() => _value;
+
 		protected void InvokeUpdate(T previousValue)
 		{
 			if (_isBatching)
@@ -226,59 +220,35 @@ namespace GameLovers.GameData
 			}
 		}
 
-		/// <summary>
-		/// Gets the current value without triggering dependency tracking.
-		/// Override in derived classes that store values differently.
-		/// </summary>
-		protected virtual T GetCurrentValue() => _value;
-	}
+		// Declared as a partial method so calls are compiled out in player builds.
+		partial void EditorDebug_Register();
 
-	/// <inheritdoc cref="IObservableResolverField{T}"/>
-	public class ObservableResolverField<T> : ObservableField<T>, IObservableResolverField<T>
-	{
-		private Func<T> _fieldResolver;
-		private Action<T> _fieldSetter;
-
-		/// <inheritdoc cref="IObservableField{T}.Value" />
-		public override T Value
+		// ═══════════════════════════════════════════════════════════════════════════
+		// EDITOR-ONLY: Observable Debug Window Support
+		// ═══════════════════════════════════════════════════════════════════════════
+		// This section provides automatic registration of observable instances for
+		// the Observable Debug Window (Window > GameLovers > Observable Debugger).
+		//
+		// Features:
+		// - Zero configuration required from users
+		// - Automatic tracking using weak references (no memory leaks)
+		// - Live value/subscriber inspection via captured getters
+		//
+		// This code is compiled out in builds via #if UNITY_EDITOR.
+		// ═══════════════════════════════════════════════════════════════════════════
+#if UNITY_EDITOR
+		partial void EditorDebug_Register()
 		{
-			get
-			{
-				ComputedTracker.OnRead(this);
-				return _fieldResolver();
-			}
-			set
-			{
-				var previousValue = _fieldResolver();
-
-				_fieldSetter(value);
-
-				InvokeUpdate(previousValue);
-			}
+			ObservableDebugRegistry.Register(
+				instance: this,
+				kind: "Field",
+				valueGetter: () =>
+				{
+					object v = Value;
+					return v?.ToString() ?? string.Empty;
+				},
+				subscriberCountGetter: () => _updateActions.Count);
 		}
-
-		private ObservableResolverField() { }
-
-		public ObservableResolverField(Func<T> fieldResolver, Action<T> fieldSetter)
-		{
-			_fieldResolver = fieldResolver;
-			_fieldSetter = fieldSetter;
-		}
-
-		/// <summary>
-		/// Rebinds this field to new resolver functions without losing existing observers
-		/// </summary>
-		/// <param name="fieldResolver">The new getter function for the field</param>
-		/// <param name="fieldSetter">The new setter function for the field</param>
-		public void Rebind(Func<T> fieldResolver, Action<T> fieldSetter)
-		{
-			_fieldResolver = fieldResolver;
-			_fieldSetter = fieldSetter;
-		}
-
-		/// <inheritdoc />
-		protected override T GetCurrentValue() => _fieldResolver();
-
-		public static implicit operator T(ObservableResolverField<T> value) => value.Value;
+#endif
 	}
 }

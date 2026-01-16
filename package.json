@@ -14,9 +14,19 @@
   },
   "samples": [
     {
-      "displayName": "Enum Selector Example",
-      "description": "Shows how to use EnumSelector with a property drawer",
-      "path": "Samples~/EnumSelectorExample"
+      "displayName": "Reactive UI Demo",
+      "description": "ObservableField + ObservableList + ComputedField with both uGUI and UI Toolkit bindings",
+      "path": "Samples~/Reactive UI Demo"
+    },
+    {
+      "displayName": "Designer Workflow",
+      "description": "ScriptableObject editing workflow using ConfigsScriptableObject, UnitySerializedDictionary, and EnumSelector",
+      "path": "Samples~/Designer Workflow"
+    },
+    {
+      "displayName": "Validation and Migration",
+      "description": "Editor-only demo for validation attributes (EditorConfigValidator) and schema migrations (MigrationRunner)",
+      "path": "Samples~/Validation and Migration"
     }
   ]
 }

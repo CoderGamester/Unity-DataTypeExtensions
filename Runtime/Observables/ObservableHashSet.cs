@@ -65,12 +65,15 @@ namespace GameLovers.GameData
 	}
 
 	/// <inheritdoc />
-	public class ObservableHashSet<T> : IObservableHashSet<T>, IBatchable, IComputedDependency
+	public partial class ObservableHashSet<T> : IObservableHashSet<T>, IBatchable, IComputedDependency
 	{
 		private readonly HashSet<T> _hashSet;
 		private readonly IList<Action<T, ObservableUpdateType>> _updateActions = new List<Action<T, ObservableUpdateType>>();
 		private readonly List<Action> _dependencyActions = new List<Action>();
 		private bool _isBatching;
+
+		// Declared as a partial method so calls are compiled out in player builds.
+		partial void EditorDebug_Register();
 
 		/// <inheritdoc />
 		public int Count
@@ -85,16 +88,19 @@ namespace GameLovers.GameData
 		public ObservableHashSet()
 		{
 			_hashSet = new HashSet<T>();
+			EditorDebug_Register();
 		}
 
 		public ObservableHashSet(IEnumerable<T> collection)
 		{
 			_hashSet = new HashSet<T>(collection);
+			EditorDebug_Register();
 		}
 
 		public ObservableHashSet(IEqualityComparer<T> comparer)
 		{
 			_hashSet = new HashSet<T>(comparer);
+			EditorDebug_Register();
 		}
 
 		/// <inheritdoc />
@@ -244,5 +250,30 @@ namespace GameLovers.GameData
 		{
 			return GetEnumerator();
 		}
+
+
+		// ═══════════════════════════════════════════════════════════════════════════
+		// EDITOR-ONLY: Observable Debug Window Support
+		// ═══════════════════════════════════════════════════════════════════════════
+		// This section provides automatic registration of observable instances for
+		// the Observable Debug Window (Window > GameLovers > Observable Debugger).
+		//
+		// Features:
+		// - Zero configuration required from users
+		// - Automatic tracking using weak references (no memory leaks)
+		// - Live value/subscriber inspection via captured getters
+		//
+		// This code is compiled out in builds via #if UNITY_EDITOR.
+		// ═══════════════════════════════════════════════════════════════════════════
+#if UNITY_EDITOR
+		partial void EditorDebug_Register()
+		{
+			ObservableDebugRegistry.Register(
+				instance: this,
+				kind: "HashSet",
+				valueGetter: () => $"Count: {Count}",
+				subscriberCountGetter: () => _updateActions.Count);
+		}
+#endif
 	}
 }

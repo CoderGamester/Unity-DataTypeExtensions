@@ -35,7 +35,7 @@ namespace GameLovers.GameData
 	/// A field that is computed from other observable fields.
 	/// It automatically updates when any of its dependencies change.
 	/// </summary>
-	public class ComputedField<T> : IObservableFieldReader<T>, IDisposable, IBatchable, IComputedDependency, IComputedFieldInternal
+	public partial class ComputedField<T> : IObservableFieldReader<T>, IDisposable, IBatchable, IComputedDependency, IComputedFieldInternal
 	{
 		private readonly Func<T> _computation;
 		private readonly List<Action<T, T>> _updateActions = new List<Action<T, T>>();
@@ -45,6 +45,9 @@ namespace GameLovers.GameData
 		private bool _isDirty = true;
 		private bool _isBatching;
 		private T _batchPreviousValue;
+
+		// Declared as a partial method so calls are compiled out in player builds.
+		partial void EditorDebug_Register();
 
 		/// <inheritdoc />
 		public T Value
@@ -63,6 +66,7 @@ namespace GameLovers.GameData
 		public ComputedField(Func<T> computation)
 		{
 			_computation = computation;
+			EditorDebug_Register();
 		}
 
 		/// <inheritdoc />
@@ -211,6 +215,35 @@ namespace GameLovers.GameData
 			_updateActions.Clear();
 			_dependencyActions.Clear();
 		}
+
+
+		// ═══════════════════════════════════════════════════════════════════════════
+		// EDITOR-ONLY: Observable Debug Window Support
+		// ═══════════════════════════════════════════════════════════════════════════
+		// This section provides automatic registration of observable instances for
+		// the Observable Debug Window (Window > GameLovers > Observable Debugger).
+		//
+		// Features:
+		// - Zero configuration required from users
+		// - Automatic tracking using weak references (no memory leaks)
+		// - Live value/subscriber inspection via captured getters
+		//
+		// This code is compiled out in builds via #if UNITY_EDITOR.
+		// ═══════════════════════════════════════════════════════════════════════════
+#if UNITY_EDITOR
+		partial void EditorDebug_Register()
+		{
+			ObservableDebugRegistry.Register(
+				instance: this,
+				kind: "Computed",
+				valueGetter: () =>
+				{
+					object v = Value;
+					return v?.ToString() ?? string.Empty;
+				},
+				subscriberCountGetter: () => _updateActions.Count);
+		}
+#endif
 	}
 
 	/// <summary>

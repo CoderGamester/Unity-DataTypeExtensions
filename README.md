@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](CHANGELOG.md)
 
-> **Quick Links**: [Installation](#installation) | [Quick Start](#quick-start) | [Features](#features-documentation) | [Contributing](#contributing)
+> **Quick Links**: [Installation](#installation) | [Quick Start](#quick-start) | [Features](#features-documentation) | [Editor Tools](#editor-tools)| [Contributing](#contributing)
 
 ## Why Use This Package?
 
@@ -106,10 +106,22 @@ Runtime/
 Editor/
 ├── EnumSelectorPropertyDrawer.cs # Custom drawer for EnumSelector
 ├── ReadOnlyPropertyDrawer.cs     # ReadOnly attribute drawer
+├── Inspectors/
+│   └── ConfigsScriptableObjectInspector.cs # UI Toolkit inspector for ConfigsScriptableObject<,>
+├── Windows/
+│   ├── ConfigBrowserWindow.cs     # UI Toolkit window: browse/validate/migrate configs
+│   └── ObservableDebugWindow.cs   # UI Toolkit window: inspect observables + dependencies
+├── Elements/
+│   ├── JsonViewerElement.cs       # Shared JSON viewer element
+│   ├── ValidationErrorElement.cs  # Shared validation error row element
+│   ├── MigrationPanelElement.cs   # Config Browser migrations panel
+│   └── DependencyGraphElement.cs  # Observable Debugger dependency view
 └── Validation/                   # EditorConfigValidator + ValidationResult
 
 Samples~/
-└── Enum Selector Example/        # EnumSelector usage sample
+├── Reactive UI Demo/             # ObservableField + ComputedField with uGUI and UI Toolkit
+├── Designer Workflow/            # ScriptableObject editing with ConfigsScriptableObject
+└── Validation and Migration/     # Editor-only validation and migration demo
 ```
 
 ### Key Components
@@ -128,6 +140,36 @@ Samples~/
 | **UnitySerializedDictionary** | Dictionary type visible in Unity Inspector |
 
 ---
+
+## Editor Tools
+
+### Config Browser
+
+<!-- Add configBrowser.gif -->
+
+- **Menu**: `Window > GameLovers > Config Browser`
+- **Purpose**: Unified window to browse configs from a provider, validate them, export JSON, and preview migrations.
+- **Highlights**:
+  - Browse tab: select a config entry to view JSON and run **Validate** for the selection.
+  - Toolbar: **Validate All** (results displayed inside the window) and **Export JSON**.
+  - Migrations tab: conditionally visible when migrations exist (uses `MigrationRunner`).
+
+### Observable Debugger
+
+<!-- Add observableDebugger.png -->
+
+- **Menu**: `Window > GameLovers > Observable Debugger`
+- **Purpose**: Inspect live observable instances (`ObservableField`, `ComputedField`, and observable collections).
+- **Highlights**:
+  - Filtering by name, kind, and “active only”.
+  - Selecting a computed observable shows its current dependency list.
+
+### ConfigsScriptableObject Inspector
+
+<!-- Add inspector.png -->
+
+- **Where**: Inspector UI for `ConfigsScriptableObject<,>` derived assets.
+- **Purpose**: Inline entry status (duplicate keys / attribute-based validation) and a quick **Validate All** action.
 
 ## Quick Start
 
@@ -724,7 +766,7 @@ public class ItemData : ScriptableObject
 }
 ```
 
-> **Note:** See `Samples~/Enum Selector Example/` for complete PropertyDrawer implementation.
+> **Note:** See `Samples~/Designer Workflow/` for a complete `EnumSelector` PropertyDrawer implementation with `ItemTypeSelector`.
 
 ---
 
@@ -760,24 +802,30 @@ displayScores.Observe((key, prev, curr, type) => UpdateUI(key, curr));
 
 Import samples via **Package Manager** → **GameLovers GameData** → **Samples**
 
-### Enum Selector Example
+### Reactive UI Demo
 
 Demonstrates:
-- Creating concrete `EnumSelector<T>` types
-- Custom `PropertyDrawer` for Inspector dropdown
-- Runtime enum access and validation
+- `ObservableField<T>` for reactive value binding
+- `ObservableList<T>` for dynamic list UI
+- `ComputedField<T>` for auto-updating derived values
+- `ObservableBatch` for atomic multi-field updates
+- Both uGUI and UI Toolkit bindings
 
-### Planned Samples
+### Designer Workflow
 
-Additional samples are in development:
+Demonstrates:
+- `ConfigsScriptableObject<TId, TAsset>` for designer-editable configs
+- `UnitySerializedDictionary<TKey, TValue>` for Inspector dictionary editing
+- `EnumSelector<T>` with custom `PropertyDrawer`
+- Loading ScriptableObject configs into `ConfigsProvider` at runtime
 
-| Sample | Description |
-|--------|-------------|
-| **Reactive UI Demo** | Health bars and stats that update automatically using `ObservableField` and `ComputedField` |
-| **Designer Workflow** | ScriptableObject-based config editing with `UnitySerializedDictionary` and runtime loading |
-| **Validation & Migration** | Config validation attributes and schema migration patterns |
+### Validation and Migration
 
-See `SAMPLES_BACKLOG.md` for detailed specifications.
+Demonstrates (Editor-only):
+- Validation attributes (`[Required]`, `[Range]`, `[MinLength]`)
+- `EditorConfigValidator` for config validation
+- `IConfigMigration` for schema migrations
+- `MigrationRunner` for applying migrations
 
 ---
 
