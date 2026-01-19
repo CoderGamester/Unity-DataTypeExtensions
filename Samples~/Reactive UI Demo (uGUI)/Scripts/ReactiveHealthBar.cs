@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,18 +10,12 @@ namespace GameLovers.GameData.Samples.ReactiveUiDemo
 	public sealed class ReactiveHealthBar : MonoBehaviour
 	{
 		[SerializeField] private Slider _slider;
-		[SerializeField] private Text _label;
+		[SerializeField] private TMP_Text _label;
 		[SerializeField] private int _maxHealth = 100;
 
-		private ObservableField<int> _health;
+		private IObservableFieldReader<int> _health;
 
-		public void Setup(Slider slider, Text label)
-		{
-			_slider = slider;
-			_label = label;
-		}
-
-		public void Bind(ObservableField<int> health, int maxHealth)
+		public void Bind(IObservableFieldReader<int> health, int maxHealth)
 		{
 			_health = health;
 			_maxHealth = Mathf.Max(1, maxHealth);

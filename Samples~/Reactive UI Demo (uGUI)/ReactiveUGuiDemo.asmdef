@@ -1,14 +1,11 @@
 {
-  "name": "GameLovers.GameData.Samples.ValidationAndMigration",
+  "name": "GameLovers.GameData.Samples.ReactiveUGuiDemo",
   "rootNamespace": "",
   "references": [
     "GameLovers.GameData",
-    "GameLovers.GameData.Editor",
     "Unity.TextMeshPro"
   ],
-  "includePlatforms": [
-    "Editor"
-  ],
+  "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,

@@ -44,7 +44,6 @@ namespace GameLovers.GameData
 		private T _value;
 		private bool _isDirty = true;
 		private bool _isBatching;
-		private T _batchPreviousValue;
 
 		// Declared as a partial method so calls are compiled out in player builds.
 		partial void EditorDebug_Register();
@@ -83,7 +82,6 @@ namespace GameLovers.GameData
 			if (!_isBatching)
 			{
 				_isBatching = true;
-				_batchPreviousValue = _value;
 			}
 		}
 

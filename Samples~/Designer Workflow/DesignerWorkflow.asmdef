@@ -2,7 +2,8 @@
   "name": "GameLovers.GameData.Samples.DesignerWorkflow",
   "rootNamespace": "",
   "references": [
-    "GameLovers.GameData"
+    "GameLovers.GameData",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

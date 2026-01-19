@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+#if UNITY_EDITOR
 using GameLoversEditor.GameData;
+#endif
 using Newtonsoft.Json.Linq;
+using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace GameLovers.GameData.Samples.ValidationAndMigration
@@ -14,36 +16,27 @@ namespace GameLovers.GameData.Samples.ValidationAndMigration
 	/// </summary>
 	public sealed class ValidationMigrationDemoController : MonoBehaviour
 	{
-		private readonly List<GameObject> _createdObjects = new List<GameObject>();
-
-		private Text _output;
-
 		private void Awake()
 		{
-			EnsureEventSystem();
-			var canvas = EnsureCanvas();
-
-			var panel = CreatePanel(canvas.transform, "Validation & Migration", new Vector2(12, -12), new Vector2(560, 560));
-			CreateButton(panel.transform, "ValidateBtn", "Validate All (EditorConfigValidator)", RunValidation);
-			CreateButton(panel.transform, "MigrateBtn", "Run Migration Demo (v1 -> v2)", RunMigration);
-			CreateSpacer(panel.transform, 8);
-			_output = CreateMultilineLabel(panel.transform, "Output", "(click a button)");
-		}
-
-		private void OnDestroy()
-		{
-			for (var i = 0; i < _createdObjects.Count; i++)
+			if (_validateButton != null)
 			{
-				if (_createdObjects[i] != null)
-				{
-					Destroy(_createdObjects[i]);
-				}
+				_validateButton.onClick.AddListener(RunValidation);
 			}
-			_createdObjects.Clear();
+
+			if (_migrateButton != null)
+			{
+				_migrateButton.onClick.AddListener(RunMigration);
+			}
+
+			SetOutput("(click a button)");
 		}
 
 		private void RunValidation()
 		{
+#if !UNITY_EDITOR
+			SetOutput("This sample is Editor-only.");
+			return;
+#else
 			var provider = new ConfigsProvider();
 
 			var configs = new List<SamplePlayerConfig>
@@ -86,10 +79,15 @@ namespace GameLovers.GameData.Samples.ValidationAndMigration
 			}
 
 			SetOutput(sb.ToString());
+#endif
 		}
 
 		private void RunMigration()
 		{
+#if !UNITY_EDITOR
+			SetOutput("This sample is Editor-only.");
+			return;
+#else
 			MigrationRunner.Initialize(force: true);
 
 			var before = new JObject
@@ -135,6 +133,7 @@ namespace GameLovers.GameData.Samples.ValidationAndMigration
 			sb.AppendLine(after.ToString());
 
 			SetOutput(sb.ToString());
+#endif
 		}
 
 		private void SetOutput(string text)
@@ -145,140 +144,10 @@ namespace GameLovers.GameData.Samples.ValidationAndMigration
 			}
 		}
 
-		private void EnsureEventSystem()
-		{
-			if (FindObjectOfType<EventSystem>() != null)
-			{
-				return;
-			}
-
-			var go = new GameObject("EventSystem");
-			_createdObjects.Add(go);
-			go.AddComponent<EventSystem>();
-			go.AddComponent<StandaloneInputModule>();
-		}
-
-		private Canvas EnsureCanvas()
-		{
-			var existing = FindObjectOfType<Canvas>();
-			if (existing != null)
-			{
-				return existing;
-			}
-
-			var go = new GameObject("Validation & Migration Canvas");
-			_createdObjects.Add(go);
-
-			var canvas = go.AddComponent<Canvas>();
-			canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-			go.AddComponent<CanvasScaler>();
-			go.AddComponent<GraphicRaycaster>();
-
-			return canvas;
-		}
-
-		private static GameObject CreatePanel(Transform parent, string title, Vector2 anchoredPos, Vector2 size)
-		{
-			var root = new GameObject("Panel");
-			root.transform.SetParent(parent, false);
-
-			var rt = root.AddComponent<RectTransform>();
-			rt.anchorMin = new Vector2(0, 1);
-			rt.anchorMax = new Vector2(0, 1);
-			rt.pivot = new Vector2(0, 1);
-			rt.anchoredPosition = anchoredPos;
-			rt.sizeDelta = size;
-
-			var img = root.AddComponent<Image>();
-			img.color = new Color(0f, 0f, 0f, 0.55f);
-
-			var v = root.AddComponent<VerticalLayoutGroup>();
-			v.padding = new RectOffset(10, 10, 10, 10);
-			v.spacing = 6;
-			v.childControlHeight = true;
-			v.childControlWidth = true;
-			v.childForceExpandHeight = false;
-			v.childForceExpandWidth = true;
-
-			var header = CreateLabel(root.transform, "Title", title);
-			header.fontStyle = FontStyle.Bold;
-
-			return root;
-		}
-
-		private static void CreateSpacer(Transform parent, float height)
-		{
-			var spacer = new GameObject("Spacer");
-			spacer.transform.SetParent(parent, false);
-			var rt = spacer.AddComponent<RectTransform>();
-			rt.sizeDelta = new Vector2(0, height);
-		}
-
-		private static Text CreateLabel(Transform parent, string name, string text)
-		{
-			var go = new GameObject(name);
-			go.transform.SetParent(parent, false);
-			var rt = go.AddComponent<RectTransform>();
-			rt.sizeDelta = new Vector2(0, 22);
-
-			var label = go.AddComponent<Text>();
-			label.text = text;
-			label.color = Color.white;
-			label.fontSize = 14;
-			label.alignment = TextAnchor.MiddleLeft;
-			label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-			return label;
-		}
-
-		private static Text CreateMultilineLabel(Transform parent, string name, string text)
-		{
-			var go = new GameObject(name);
-			go.transform.SetParent(parent, false);
-			var rt = go.AddComponent<RectTransform>();
-			rt.sizeDelta = new Vector2(0, 420);
-
-			var label = go.AddComponent<Text>();
-			label.text = text;
-			label.color = Color.white;
-			label.fontSize = 12;
-			label.alignment = TextAnchor.UpperLeft;
-			label.horizontalOverflow = HorizontalWrapMode.Wrap;
-			label.verticalOverflow = VerticalWrapMode.Truncate;
-			label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-			return label;
-		}
-
-		private static Button CreateButton(Transform parent, string name, string label, Action onClick)
-		{
-			var go = new GameObject(name);
-			go.transform.SetParent(parent, false);
-
-			var rt = go.AddComponent<RectTransform>();
-			rt.sizeDelta = new Vector2(0, 28);
-
-			var img = go.AddComponent<Image>();
-			img.color = new Color(0.2f, 0.2f, 0.2f, 0.9f);
-
-			var button = go.AddComponent<Button>();
-			button.targetGraphic = img;
-			button.onClick.AddListener(() => onClick?.Invoke());
-
-			var textGo = new GameObject("Label");
-			textGo.transform.SetParent(go.transform, false);
-			var textRt = textGo.AddComponent<RectTransform>();
-			textRt.anchorMin = Vector2.zero;
-			textRt.anchorMax = Vector2.one;
-			textRt.offsetMin = Vector2.zero;
-			textRt.offsetMax = Vector2.zero;
-
-			var textLabel = textGo.AddComponent<Text>();
-			textLabel.text = label;
-			textLabel.color = Color.white;
-			textLabel.fontSize = 14;
-			textLabel.alignment = TextAnchor.MiddleCenter;
-			textLabel.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-
-			return button;
-		}
+ #pragma warning disable CS0649 // Unity assigns via Inspector
+		[SerializeField] private Button _validateButton;
+		[SerializeField] private Button _migrateButton;
+		[SerializeField] private TMP_Text _output;
+ #pragma warning restore CS0649
 	}
 }

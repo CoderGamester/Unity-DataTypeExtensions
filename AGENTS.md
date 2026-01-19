@@ -94,13 +94,14 @@ Samples are located in `Samples~/` and exposed via `package.json`:
 
 | Sample | Purpose | Key Files |
 |--------|---------|-----------|
-| **Reactive UI Demo** | Demonstrates `ObservableField`, `ObservableList`, `ComputedField`, `ObservableBatch` with both uGUI and UI Toolkit bindings | `ReactiveUIDemoController.cs`, `PlayerData.cs`, `ReactiveHealthBar.cs`, `ReactiveStatsPanel.cs` |
+| **Reactive UI Demo (uGUI)** | Demonstrates `ObservableField`, `ObservableList`, `ComputedField`, `ObservableBatch` with uGUI bindings | `ReactiveUGuiDemoController.cs`, `PlayerData.cs`, `ReactiveUGuiControlsContainer.cs`, `ReactiveHealthBar.cs`, `ReactiveInventoryList.cs`, `ReactiveUGuiStatsPanel.cs` |
+| **Reactive UI Demo (UI Toolkit)** | Demonstrates `ObservableField`, `ObservableList`, `ComputedField`, `ObservableBatch` with UI Toolkit bindings | `ReactiveToolkitDemoController.cs`, `PlayerData.cs`, `ReactiveToolkitControlsContainer.cs`, `ReactiveToolkitHealthBar.cs`, `ReactiveToolkitInventoryList.cs`, `ReactiveToolkitStatsPanel.cs`, `ReactiveToolkitDemo.uxml` |
 | **Designer Workflow** | Demonstrates `ConfigsScriptableObject`, `UnitySerializedDictionary`, `EnumSelector` with PropertyDrawer, and loading configs into `ConfigsProvider` at runtime | `ConfigLoader.cs`, `GameSettingsAsset.cs`, `LootTable.cs`, `ItemTypeSelectorPropertyDrawer.cs` |
 | **Validation and Migration** | Editor-only demo for validation attributes and schema migrations | `SamplePlayerConfig.cs` (with validation attributes), `SampleEnemyConfigMigration_v1_v2.cs`, `ValidationMigrationDemoController.cs` |
 
 **Notes for sample maintenance:**
 - Samples are imported via Package Manager → GameLovers GameData → Samples
-- All UI is created programmatically at runtime to minimize scene YAML complexity
+- Prefer keeping scenes small/robust (avoid unnecessary scene YAML churn); UI may be prefab-based (uGUI) or UXML-based (UI Toolkit)
 - Designer Workflow includes pre-built ScriptableObject assets in `Assets/Resources/`
 - Validation and Migration sample is Editor-only (cannot run in builds)
 

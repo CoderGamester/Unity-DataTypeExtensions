@@ -1,5 +1,5 @@
 {
-  "name": "GameLovers.GameData.Samples.ReactiveUiDemo",
+  "name": "GameLovers.GameData.Samples.ReactiveToolkitDemo",
   "rootNamespace": "",
   "references": [
     "GameLovers.GameData"

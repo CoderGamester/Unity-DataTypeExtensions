@@ -4,10 +4,10 @@ using System.Collections.Generic;
 namespace GameLovers.GameData.Samples.ReactiveUiDemo
 {
 	/// <summary>
-	/// Simple data model used by the Reactive UI Demo sample.
+	/// Simple data model used by the Reactive UI Demo (uGUI) sample.
 	/// </summary>
 	[Serializable]
-	public sealed class PlayerData : IDisposable
+	public sealed class ReactiveUGuiPlayerData : IDisposable
 	{
 		public ObservableField<int> Health { get; } = new ObservableField<int>(100);
 		public ObservableField<int> BaseDamage { get; } = new ObservableField<int>(10);
@@ -16,7 +16,7 @@ namespace GameLovers.GameData.Samples.ReactiveUiDemo
 
 		public ObservableList<string> Inventory { get; } = new ObservableList<string>(new List<string>());
 
-		public PlayerData()
+		public ReactiveUGuiPlayerData()
 		{
 			TotalDamage = new ComputedField<int>(() => BaseDamage.Value + WeaponBonus.Value);
 		}

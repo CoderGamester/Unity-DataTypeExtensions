@@ -10,13 +10,19 @@
   "hideInEditor": false,
   "dependencies": {
     "com.unity.nuget.newtonsoft-json": "3.2.1",
-    "com.cysharp.unitask": "2.5.10"
+    "com.cysharp.unitask": "2.5.10",
+    "com.unity.textmeshpro": "3.0.6"
   },
   "samples": [
     {
-      "displayName": "Reactive UI Demo",
-      "description": "ObservableField + ObservableList + ComputedField with both uGUI and UI Toolkit bindings",
-      "path": "Samples~/Reactive UI Demo"
+      "displayName": "Reactive UI Demo (uGUI)",
+      "description": "ObservableField + ObservableList + ComputedField with uGUI bindings",
+      "path": "Samples~/Reactive UI Demo (uGUI)"
+    },
+    {
+      "displayName": "Reactive UI Demo (UI Toolkit)",
+      "description": "ObservableField + ObservableList + ComputedField with UI Toolkit bindings",
+      "path": "Samples~/Reactive UI Demo (UI Toolkit)"
     },
     {
       "displayName": "Designer Workflow",
