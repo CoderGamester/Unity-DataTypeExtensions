@@ -43,7 +43,7 @@ namespace GameLovers.GameData.Editor
 		/// <summary>
 		/// Opens the Observable Debugger window.
 		/// </summary>
-		[MenuItem("Window/GameLovers/Observable Debugger")]
+		[MenuItem("Tools/Game Data/Observable Debugger")]
 		public static void ShowWindow()
 		{
 			var window = GetWindow<ObservableDebugWindow>("Observable Debugger");
@@ -145,9 +145,9 @@ namespace GameLovers.GameData.Editor
 			};
 
 			row.Add(new Label { name = "Name", style = { flexGrow = 2, minWidth = 260 } });
-			row.Add(new Label { name = "Value", style = { flexGrow = 3, minWidth = 260 } });
-			row.Add(new Label { name = "Subs", style = { minWidth = 70, unityTextAlign = TextAnchor.MiddleRight } });
-			row.Add(new Label { name = "Kind", style = { minWidth = 100, unityTextAlign = TextAnchor.MiddleRight } });
+			row.Add(new Label { name = "Value", style = { flexGrow = 3, minWidth = 40 } });
+			row.Add(new Label { name = "Subs", style = { minWidth = 40, unityTextAlign = TextAnchor.MiddleRight } });
+			row.Add(new Label { name = "Kind", style = { minWidth = 80, unityTextAlign = TextAnchor.MiddleRight } });
 
 			return row;
 		}
