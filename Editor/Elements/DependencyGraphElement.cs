@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -46,19 +47,19 @@ namespace GameLovers.GameData.Editor
 		{
 			_list.Clear();
 
-			if (snapshot.Info.Kind != "Computed")
+			if (snapshot.Name == null || snapshot.Kind != "Computed")
 			{
 				_header.text = "Dependency Graph (select a Computed observable)";
 				return;
 			}
 
-			if (!snapshot.InstanceRef.TryGetTarget(out var instance) || instance == null)
+			if (snapshot.InstanceRef == null || !snapshot.InstanceRef.TryGetTarget(out var instance) || instance == null)
 			{
 				_header.text = "Dependency Graph (instance collected)";
 				return;
 			}
 
-			_header.text = $"Dependency Graph: {snapshot.Info.Name}#{snapshot.Info.Id}";
+			_header.text = $"Dependency Graph: {FormatName(snapshot)}";
 
 			var deps = TryReadDependencies(instance);
 			if (deps == null)
@@ -71,13 +72,39 @@ namespace GameLovers.GameData.Editor
 			foreach (var d in deps)
 			{
 				count++;
-				_list.Add(new Label($"- {d?.GetType().Name ?? "null"}"));
+				var depSnapshot = ObservableDebugRegistry.FindByInstance(d);
+				if (depSnapshot.HasValue)
+				{
+					var s = depSnapshot.Value;
+					var label = new Label($"- {FormatName(s)} = {s.Value}");
+					_list.Add(label);
+				}
+				else
+				{
+					_list.Add(new Label($"- {d?.GetType().Name ?? "null"} (untracked)"));
+				}
 			}
 
 			if (count == 0)
 			{
 				_list.Add(new Label("No dependencies registered yet."));
 			}
+		}
+
+		private static string FormatName(ObservableDebugRegistry.EntrySnapshot s)
+		{
+			// Strip backtick-number patterns (e.g., `1, `2) from generic names
+			var formattedName = Regex.Replace(s.Name ?? string.Empty, @"`\d+", "");
+
+			// Append source location if available
+			var sourceLocation = s.SourceLocation;
+			if (!string.IsNullOrEmpty(sourceLocation))
+			{
+				return $"{formattedName} ({sourceLocation})";
+			}
+
+			// Fallback to ID if no source location
+			return $"{formattedName}#{s.Id}";
 		}
 
 		private static IEnumerable TryReadDependencies(object computedFieldInstance)

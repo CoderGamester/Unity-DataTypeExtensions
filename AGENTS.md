@@ -42,7 +42,7 @@ For user-facing docs, treat `README.md` as the primary entry point. This file is
 - `Editor/Windows/ObservableDebugWindow.cs` (UI Toolkit EditorWindow)
 - `Editor/Inspectors/ConfigsScriptableObjectInspector.cs` (UI Toolkit Inspector)
 - `Editor/Elements/JsonViewerElement.cs` + `Editor/Elements/ValidationErrorElement.cs` + `Editor/Elements/MigrationPanelElement.cs` + `Editor/Elements/DependencyGraphElement.cs`
-- `Runtime/Observables/ObservableDebugRegistry.cs` + `Runtime/Observables/ObservableDebugInfo.cs` (editor-only support for Observable Debugger)
+- `Runtime/Observables/ObservableDebugRegistry.cs` (editor-only support for Observable Debugger; debug metadata is private to the registry)
 - `Tests/Editor/` (NUnit tests for core behaviors)
 
 ## 4. Important Behaviors / Gotchas

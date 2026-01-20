@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace GameLovers.GameData
 {
@@ -31,6 +33,30 @@ namespace GameLovers.GameData
 	public static class ObservableDebugRegistry
 	{
 #if UNITY_EDITOR
+		internal readonly struct ObservableDebugInfo
+		{
+			public readonly int Id;
+			public readonly string Name;
+			public readonly string Kind;
+			public readonly DateTime CreatedAt;
+			public readonly string FilePath;
+			public readonly int LineNumber;
+
+			public ObservableDebugInfo(int id, string name, string kind, DateTime createdAt, string filePath, int lineNumber)
+			{
+				Id = id;
+				Name = name;
+				Kind = kind;
+				CreatedAt = createdAt;
+				FilePath = filePath;
+				LineNumber = lineNumber;
+			}
+
+			public string FileName => string.IsNullOrEmpty(FilePath) ? null : Path.GetFileName(FilePath);
+
+			public string SourceLocation => string.IsNullOrEmpty(FilePath) ? null : $"{FileName}:{LineNumber}";
+		}
+
 		private static int _nextId = 1;
 		private static readonly ConditionalWeakTable<object, Entry> _entries = new ConditionalWeakTable<object, Entry>();
 		private static readonly List<WeakReference<object>> _refs = new List<WeakReference<object>>();
@@ -56,8 +82,8 @@ namespace GameLovers.GameData
 				return;
 			}
 
-			var name = GetAutoName(kind, instance.GetType());
-			var info = new ObservableDebugInfo(_nextId++, name, kind, DateTime.UtcNow);
+			var (name, filePath, lineNumber) = GetAutoName(kind, instance.GetType());
+			var info = new ObservableDebugInfo(_nextId++, name, kind, DateTime.UtcNow, filePath, lineNumber);
 			_entries.Add(instance, new Entry(info, valueGetter, subscriberCountGetter));
 			_refs.Add(new WeakReference<object>(instance));
 		}
@@ -81,21 +107,100 @@ namespace GameLovers.GameData
 			}
 		}
 
-		private static string GetAutoName(string kind, Type instanceType)
+		/// <summary>
+		/// Finds a snapshot for a specific observable instance if it is currently tracked.
+		/// </summary>
+		public static EntrySnapshot? FindByInstance(object instance)
 		{
+			if (instance == null) return null;
+			if (_entries.TryGetValue(instance, out var entry))
+			{
+				return entry.ToSnapshot(instance);
+			}
+			return null;
+		}
+
+		private static (string name, string filePath, int lineNumber) GetAutoName(string kind, Type instanceType)
+		{
+			string filePath = null;
+			int lineNumber = 0;
+			string typeName = "Unknown";
+			string memberName = kind;
+
 			try
 			{
-				// Skip a few frames to avoid naming everything as "...ObservableField..ctor".
-				var stack = new StackTrace(4, false);
+				// Enable file info to capture source location
+				var stack = new StackTrace(4, true);
 				var frame = stack.GetFrame(0);
 				var method = frame?.GetMethod();
-				var typeName = method?.DeclaringType?.Name ?? "Unknown";
-				return $"{typeName}.{kind}<{instanceType.Name}>";
+				typeName = method?.DeclaringType?.Name ?? "Unknown";
+				filePath = frame?.GetFileName();
+				lineNumber = frame?.GetFileLineNumber() ?? 0;
+
+				// Try to extract field/property name from source line
+				if (!string.IsNullOrEmpty(filePath) && lineNumber > 0)
+				{
+					var extractedName = TryExtractMemberName(filePath, lineNumber);
+					if (!string.IsNullOrEmpty(extractedName))
+					{
+						memberName = extractedName;
+					}
+				}
 			}
 			catch
 			{
-				return $"{kind}<{instanceType.Name}>";
+				// Fallback to basic name on any error
 			}
+
+			var name = $"{typeName}.{memberName}<{instanceType.Name}>";
+			return (name, filePath, lineNumber);
+		}
+
+		/// <summary>
+		/// Attempts to extract the field or property name from source code at the given location.
+		/// </summary>
+		private static string TryExtractMemberName(string filePath, int lineNumber)
+		{
+			try
+			{
+				if (!File.Exists(filePath)) return null;
+
+				var lines = File.ReadAllLines(filePath);
+				if (lineNumber <= 0 || lineNumber > lines.Length) return null;
+
+				var line = lines[lineNumber - 1];
+
+				// Pattern for property: "public ObservableField<int> Health { get; }"
+				// Pattern for field: "private ObservableField<int> _health ="
+				// Pattern for assignment: "Health = new ObservableField<int>()"
+
+				// Try to match property declaration pattern
+				var propertyMatch = Regex.Match(line, @"\b(\w+)\s*\{\s*get\s*;");
+				if (propertyMatch.Success)
+				{
+					return propertyMatch.Groups[1].Value;
+				}
+
+				// Try to match field assignment pattern (name before = new)
+				var assignmentMatch = Regex.Match(line, @"\b(\w+)\s*=\s*new\s+(?:Observable|Computed)");
+				if (assignmentMatch.Success)
+				{
+					return assignmentMatch.Groups[1].Value;
+				}
+
+				// Try to match field declaration pattern (type followed by name)
+				var fieldMatch = Regex.Match(line, @"(?:Observable|Computed)\w*<[^>]+>\s+(\w+)\s*[;=]");
+				if (fieldMatch.Success)
+				{
+					return fieldMatch.Groups[1].Value;
+				}
+			}
+			catch
+			{
+				// Silently fail - this is just for better naming, not critical
+			}
+
+			return null;
 		}
 
 		/// <summary>
@@ -103,15 +208,25 @@ namespace GameLovers.GameData
 		/// </summary>
 		public readonly struct EntrySnapshot
 		{
-			public readonly ObservableDebugInfo Info;
+			private readonly ObservableDebugInfo _info;
+
+			public int Id => _info.Id;
+			public string Name => _info.Name;
+			public string Kind => _info.Kind;
+			public DateTime CreatedAt => _info.CreatedAt;
+			public string FilePath => _info.FilePath;
+			public int LineNumber => _info.LineNumber;
+			public string FileName => _info.FileName;
+			public string SourceLocation => _info.SourceLocation;
+
 			public readonly string Value;
 			public readonly int Subscribers;
 			public readonly Type RuntimeType;
 			public readonly WeakReference<object> InstanceRef;
 
-			public EntrySnapshot(ObservableDebugInfo info, string value, int subscribers, Type runtimeType, WeakReference<object> instanceRef)
+			internal EntrySnapshot(ObservableDebugInfo info, string value, int subscribers, Type runtimeType, WeakReference<object> instanceRef)
 			{
-				Info = info;
+				_info = info;
 				Value = value;
 				Subscribers = subscribers;
 				RuntimeType = runtimeType;

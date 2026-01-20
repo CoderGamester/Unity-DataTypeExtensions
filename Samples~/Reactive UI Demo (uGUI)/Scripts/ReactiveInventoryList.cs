@@ -16,6 +16,11 @@ namespace GameLovers.GameData.Samples.ReactiveUiDemo
 		private IObservableListReader<string> _inventory;
 		private readonly List<GameObject> _spawned = new List<GameObject>();
 
+		private void Awake()
+		{
+			_itemPrefab.SetActive(false);
+		}
+
 		public void Bind(IObservableListReader<string> inventory)
 		{
 			_inventory = inventory;

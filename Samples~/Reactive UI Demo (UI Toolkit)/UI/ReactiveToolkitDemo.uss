@@ -108,8 +108,8 @@
 
 /* Inventory list */
 .inventory-list {
-    min-height: 150px;
-    max-height: 250px;
+    min-height: 250px;
+    max-height: 350px;
     padding: 12px;
     background-color: rgb(45, 45, 45);
     border-radius: 8px;
