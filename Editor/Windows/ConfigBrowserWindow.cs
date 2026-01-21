@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using GameLoversEditor.GameData;
 using Newtonsoft.Json;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -25,8 +24,11 @@ namespace GameLovers.GameData.Editor
 		private const int SingleConfigId = 0;
 
 		private IConfigsProvider _provider;
-		private UnityEngine.Object _providerObject;
+		private int _selectedProviderId = -1;
+		private List<ConfigsProviderDebugRegistry.ProviderSnapshot> _snapshots = new();
 
+		private Toolbar _toolbar;
+		private ToolbarMenu _providerMenu;
 		private ToolbarSearchField _searchField;
 		private Button _validateAllButton;
 		private Button _exportJsonButton;
@@ -54,12 +56,33 @@ namespace GameLovers.GameData.Editor
 		/// <summary>
 		/// Opens the Config Browser window.
 		/// </summary>
-		[MenuItem("Window/GameLovers/Config Browser")]
+		[MenuItem("Tools/Game Data/Config Browser")]
 		public static void ShowWindow()
 		{
 			var window = GetWindow<ConfigBrowserWindow>("Config Browser");
 			window.minSize = new Vector2(720, 420);
 			window.Show();
+		}
+
+		private void OnEnable()
+		{
+			EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+		}
+
+		private void OnDisable()
+		{
+			EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+		}
+
+		private void OnPlayModeStateChanged(PlayModeStateChange state)
+		{
+			// Clear selection when entering or exiting play mode to avoid stale references
+			if (state == PlayModeStateChange.ExitingEditMode || state == PlayModeStateChange.ExitingPlayMode)
+			{
+				_provider = null;
+				_selectedProviderId = -1;
+				_snapshots.Clear();
+			}
 		}
 
 		/// <summary>
@@ -81,25 +104,17 @@ namespace GameLovers.GameData.Editor
 			content.Add(_migrationsRoot);
 			rootVisualElement.Add(content);
 
+			rootVisualElement.schedule.Execute(RefreshProviderList).Every(250);
+			RefreshProviderList();
 			RefreshAll();
 		}
 
 		private VisualElement BuildToolbar()
 		{
-			var toolbar = new Toolbar();
+			_toolbar = new Toolbar();
 
-			var providerField = new ObjectField("Provider")
-			{
-				objectType = typeof(UnityEngine.Object),
-				allowSceneObjects = true
-			};
-			providerField.style.minWidth = 280;
-			providerField.RegisterValueChangedCallback(evt =>
-			{
-				_providerObject = evt.newValue;
-				_provider = evt.newValue as IConfigsProvider;
-				RefreshAll();
-			});
+			_providerMenu = new ToolbarMenu { text = "No providers" };
+			_providerMenu.style.minWidth = 280;
 
 			_searchField = new ToolbarSearchField();
 			_searchField.style.flexGrow = 1;
@@ -124,13 +139,79 @@ namespace GameLovers.GameData.Editor
 				text = "Refresh"
 			};
 
-			toolbar.Add(providerField);
-			toolbar.Add(_searchField);
-			toolbar.Add(_validateAllButton);
-			toolbar.Add(_exportJsonButton);
-			toolbar.Add(_refreshButton);
+			_toolbar.Add(_providerMenu);
+			_toolbar.Add(_searchField);
+			_toolbar.Add(_validateAllButton);
+			_toolbar.Add(_exportJsonButton);
+			_toolbar.Add(_refreshButton);
 
-			return toolbar;
+			return _toolbar;
+		}
+
+		private void RefreshProviderList()
+		{
+			_snapshots.Clear();
+			_snapshots.AddRange(ConfigsProviderDebugRegistry.EnumerateSnapshots().OrderBy(s => s.Id));
+
+			var currentProviderGone = _provider != null && !_snapshots.Any(s => s.Id == _selectedProviderId);
+			if (currentProviderGone || (_provider == null && _snapshots.Count > 0))
+			{
+				var first = _snapshots.FirstOrDefault();
+				if (first.ProviderRef != null && first.ProviderRef.TryGetTarget(out var target))
+				{
+					_provider = target;
+					_selectedProviderId = first.Id;
+				}
+				else
+				{
+					_provider = null;
+					_selectedProviderId = -1;
+				}
+				RefreshAll();
+			}
+
+			UpdateProviderMenu();
+		}
+
+		private string _lastMenuText;
+		private int _lastSnapshotCount = -1;
+
+		private void UpdateProviderMenu()
+		{
+			if (_providerMenu == null || _toolbar == null) return;
+
+			var currentSnapshot = _snapshots.FirstOrDefault(s => s.Id == _selectedProviderId);
+			var menuText = _snapshots.Count == 0 ? "No providers" : 
+				currentSnapshot.Id != 0 ? $"{currentSnapshot.Name} ({currentSnapshot.ConfigTypeCount} types)" : "Select Provider";
+
+			if (_lastMenuText == menuText && _lastSnapshotCount == _snapshots.Count)
+			{
+				return;
+			}
+
+			_lastMenuText = menuText;
+			_lastSnapshotCount = _snapshots.Count;
+
+			var newMenu = new ToolbarMenu { text = menuText };
+			newMenu.style.minWidth = 280;
+
+			foreach (var snap in _snapshots)
+			{
+				var s = snap;
+				newMenu.menu.AppendAction($"{s.Name} ({s.ConfigTypeCount} types) ##{s.Id}", a =>
+				{
+					if (s.ProviderRef.TryGetTarget(out var target))
+					{
+						_provider = target;
+						_selectedProviderId = s.Id;
+						RefreshAll();
+					}
+				}, a => s.Id == _selectedProviderId ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
+			}
+
+			_toolbar.Insert(_toolbar.IndexOf(_providerMenu), newMenu);
+			_toolbar.Remove(_providerMenu);
+			_providerMenu = newMenu;
 		}
 
 		private VisualElement BuildTabs()
@@ -167,22 +248,43 @@ namespace GameLovers.GameData.Editor
 		{
 			var root = new VisualElement { style = { flexGrow = 1 } };
 
-			var content = new TwoPaneSplitView(0, 260, TwoPaneSplitViewOrientation.Horizontal);
-			content.style.flexGrow = 1;
+			// Horizontal split: tree view (left) + details panel (right)
+			var horizontalSplit = new TwoPaneSplitView(0, 260, TwoPaneSplitViewOrientation.Horizontal);
+			horizontalSplit.viewDataKey = "ConfigBrowser_HorizontalSplit";
+			horizontalSplit.style.flexGrow = 1;
 
 			_treeView = new TreeView
 			{
 				selectionType = SelectionType.Single,
 				showBorder = true,
-				style = { flexGrow = 1 }
+				style = { flexGrow = 1 },
+				makeItem = () => new Label { style = { unityTextAlign = TextAnchor.MiddleLeft, paddingLeft = 4 } },
+				bindItem = (element, index) =>
+				{
+					var node = _treeView.GetItemDataForIndex<ConfigNode>(index);
+					var label = (Label)element;
+					label.text = node.DisplayName;
+
+					// Style based on node kind
+					label.style.unityFontStyleAndWeight = node.Kind == ConfigNodeKind.Header
+						? FontStyle.Bold
+						: FontStyle.Normal;
+				}
 			};
 			_treeView.selectionChanged += OnTreeSelectionChanged;
 
-			content.Add(_treeView);
-			content.Add(BuildDetailsPanel());
+			horizontalSplit.Add(_treeView);
+			horizontalSplit.Add(BuildDetailsPanel());
 
-			root.Add(content);
-			root.Add(BuildValidationPanel());
+			// Vertical split: content (top) + validation panel (bottom)
+			var verticalSplit = new TwoPaneSplitView(1, 180, TwoPaneSplitViewOrientation.Vertical);
+			verticalSplit.viewDataKey = "ConfigBrowser_BrowseVerticalSplit";
+			verticalSplit.style.flexGrow = 1;
+
+			verticalSplit.Add(horizontalSplit);
+			verticalSplit.Add(BuildValidationPanel());
+
+			root.Add(verticalSplit);
 			return root;
 		}
 
@@ -262,12 +364,10 @@ namespace GameLovers.GameData.Editor
 			{
 				style =
 				{
-					flexGrow = 0,
-					minHeight = 140,
-					maxHeight = 260,
+					flexGrow = 1,
+					minHeight = 100,
 					borderTopWidth = 1,
-					borderTopColor = new StyleColor(new Color(0f, 0f, 0f, 0.2f)),
-					marginTop = 6
+					borderTopColor = new StyleColor(new Color(0f, 0f, 0f, 0.2f))
 				}
 			};
 
@@ -311,11 +411,6 @@ namespace GameLovers.GameData.Editor
 
 		private void RefreshAll()
 		{
-			if (_providerObject != null && _provider == null)
-			{
-				_provider = _providerObject as IConfigsProvider;
-			}
-
 			_selection = ConfigSelection.None();
 			_detailsHeader.text = "No selection";
 			_validateSelectedButton.SetEnabled(false);
@@ -329,21 +424,8 @@ namespace GameLovers.GameData.Editor
 
 		private void RefreshMigrationsVisibility()
 		{
-			var hasMigrations = false;
-			if (_provider != null)
-			{
-				var providerTypes = _provider.GetAllConfigs().Keys.ToHashSet();
-				hasMigrations = MigrationRunner.GetConfigTypesWithMigrations().Any(providerTypes.Contains);
-			}
-
-			_migrationsTab.SetEnabled(hasMigrations);
-			_migrationsTab.style.display = hasMigrations ? DisplayStyle.Flex : DisplayStyle.None;
-
-			if (!hasMigrations && _migrationsTab.value)
-			{
-				_migrationsTab.SetValueWithoutNotify(false);
-				_browseTab.SetValueWithoutNotify(true);
-			}
+			// Migrations tab is always visible; empty state is handled by MigrationPanelElement.
+			_migrationPanel.SetProvider(_provider);
 		}
 
 		private void RefreshTree()
@@ -366,7 +448,7 @@ namespace GameLovers.GameData.Editor
 			{
 				return new List<TreeViewItemData<ConfigNode>>
 				{
-					new TreeViewItemData<ConfigNode>(id++, ConfigNode.Header("Assign a Provider to browse configs."))
+					new TreeViewItemData<ConfigNode>(id++, ConfigNode.Header("No providers available. Enter Play Mode to create a ConfigsProvider."))
 				};
 			}
 
@@ -453,7 +535,7 @@ namespace GameLovers.GameData.Editor
 
 			if (_provider == null)
 			{
-				_validationList.Add(new HelpBox("Assign a Provider to validate configs.", HelpBoxMessageType.Info));
+				_validationList.Add(new HelpBox("No provider selected. Enter Play Mode and create a ConfigsProvider.", HelpBoxMessageType.Info));
 				return;
 			}
 
@@ -476,12 +558,13 @@ namespace GameLovers.GameData.Editor
 		private void OnValidationRowClicked(string configTypeName, int? configId)
 		{
 			// Best-effort: select matching node in tree by scanning visible items.
-			if (_provider == null) return;
-			var targetType = _provider.GetAllConfigs().Keys.FirstOrDefault(t => t.Name == configTypeName);
+			var provider = _provider;
+			if (provider == null) return;
+			var targetType = provider.GetAllConfigs().Keys.FirstOrDefault(t => t.Name == configTypeName);
 			if (targetType == null) return;
 
 			// Rebuild tree item data so we can search it deterministically.
-			var roots = BuildTreeItems(_provider, _searchField?.value);
+			var roots = BuildTreeItems(provider, _searchField?.value);
 			_treeView.SetRootItems(roots);
 			_treeView.Rebuild();
 
@@ -530,13 +613,14 @@ namespace GameLovers.GameData.Editor
 
 		private void ExportJson()
 		{
-			if (_provider == null)
+			var provider = _provider;
+			if (provider == null)
 			{
-				EditorUtility.DisplayDialog("Export JSON", "Assign a Provider before exporting.", "OK");
+				EditorUtility.DisplayDialog("Export JSON", "No provider selected. Enter Play Mode and create a ConfigsProvider.", "OK");
 				return;
 			}
 
-			var json = ExportProviderToJson(_provider);
+			var json = ExportProviderToJson(provider);
 			var path = EditorUtility.SaveFilePanel("Export Configs JSON", Application.dataPath, "configs.json", "json");
 			if (string.IsNullOrWhiteSpace(path))
 			{
@@ -581,10 +665,11 @@ namespace GameLovers.GameData.Editor
 
 		private List<ValidationErrorInfo> ValidateAllConfigs()
 		{
-			if (_provider == null) return new List<ValidationErrorInfo>();
+			var provider = _provider;
+			if (provider == null) return new List<ValidationErrorInfo>();
 
 			var errors = new List<ValidationErrorInfo>();
-			foreach (var kv in _provider.GetAllConfigs())
+			foreach (var kv in provider.GetAllConfigs())
 			{
 				if (!TryReadConfigs(kv.Value, out var entries))
 				{

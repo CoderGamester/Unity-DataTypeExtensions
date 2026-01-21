@@ -15,6 +15,7 @@ namespace GameLovers.GameData.Samples.DesignerWorkflow
 		[SerializeField] private Button _reloadButton;
 
 		private ConfigLoader _loader;
+		private LoadedConfigs _loadedConfigs;
 
 		private void Awake()
 		{
@@ -33,8 +34,8 @@ namespace GameLovers.GameData.Samples.DesignerWorkflow
 
 		private void ReloadAndRender()
 		{
-			var data = _loader.Load();
-			Render(data);
+			_loadedConfigs = _loader.Load();
+			Render(_loadedConfigs);
 		}
 
 		private void Render(LoadedConfigs data)

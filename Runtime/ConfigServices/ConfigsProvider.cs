@@ -14,6 +14,13 @@ namespace GameLovers.GameData
 		
 		private readonly IDictionary<Type, IEnumerable> _configs = new Dictionary<Type, IEnumerable>();
 
+		public ConfigsProvider()
+		{
+#if UNITY_EDITOR
+			ConfigsProviderDebugRegistry.Register(this);
+#endif
+		}
+
 		/// <inheritdoc />
 		public bool TryGetConfig<T>(int id, out T config)
 		{

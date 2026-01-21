@@ -39,6 +39,8 @@ Managing game data in Unity often leads to fragmented solutions: scattered confi
 
 - **[Unity](https://unity.com/download)** 6000.0+ (Unity 6)
 - **[Newtonsoft.Json](https://docs.unity3d.com/Packages/com.unity.nuget.newtonsoft-json@3.2/manual/index.html)** (com.unity.nuget.newtonsoft-json v3.2.1) - Automatically resolved
+- **[UniTask](https://github.com/Cysharp/UniTask)** (com.cysharp.unitask v2.5.10) - Used by the async backend interface `IConfigBackendService`
+- **[TextMeshPro](https://docs.unity3d.com/Packages/com.unity.textmeshpro@3.0/manual/index.html)** (com.unity.textmeshpro v3.0.6) - Used by the **Samples~** UI scripts (`TMPro`). If you don't import samples, you may not use TMP at runtime, but the package dependency will still be installed.
 
 ### Compatibility Matrix
 
@@ -62,7 +64,7 @@ Managing game data in Unity often leads to fragmented solutions: scattered confi
 2. Click the `+` button and select `Add package from git URL`
 3. Enter the following URL:
    ```
-   https://github.com/CoderGamester/com.gamelovers.gamedata.git
+   https://github.com/CoderGamester/com.gamelovers.gamedata.git#1.0.0
    ```
 
 ### Via manifest.json
@@ -193,6 +195,7 @@ public struct EnemyConfig
 
 ```csharp
 using GameLovers.GameData;
+using System.Collections.Generic;
 
 public class GameBootstrap
 {
@@ -329,13 +332,14 @@ JSON serialization for client/server config synchronization.
 - Uses `Newtonsoft.Json` for reliable serialization
 - Supports `[IgnoreServerSerialization]` attribute to exclude configs
 - Automatically handles enum serialization as strings
-- Two security modes for different trust levels
+- Two security modes for different trust levels (see `SerializationSecurityMode`)
+- Versioning is **numeric** (`ulong`) — `Deserialize` parses the serialized `Version` with `ulong.TryParse`
 
 ```csharp
 var serializer = new ConfigsSerializer();
 
 // Serialize for backend
-string json = serializer.Serialize(configsProvider, "1.0.0");
+string json = serializer.Serialize(configsProvider, "123"); // numeric version string
 
 // Deserialize from backend
 var newProvider = serializer.Deserialize<ConfigsProvider>(json);
@@ -360,49 +364,38 @@ public struct ClientOnlyConfig
 The serializer supports two security modes for different trust scenarios:
 
 ```csharp
-// Secure mode (default) - Safe for untrusted payloads (e.g., external APIs)
-// Does NOT include type information in JSON
-var secureSerializer = new ConfigsSerializer(ConfigsSerializerMode.Secure);
+// TrustedOnly (default) - Supports polymorphism via TypeNameHandling.Auto
+// ⚠️ Never use with untrusted input
+var trusted = new ConfigsSerializer(SerializationSecurityMode.TrustedOnly);
 
-// TrustedOnly mode - For internal/trusted sources only
-// Includes type names for polymorphic deserialization
-// ⚠️ WARNING: Never use with untrusted input (security risk)
-var trustedSerializer = new ConfigsSerializer(ConfigsSerializerMode.TrustedOnly);
+// Secure - Disables TypeNameHandling (reduces polymorphic type injection risk)
+// Note: the payload still contains type info via dictionary keys; validate before applying.
+var secure = new ConfigsSerializer(SerializationSecurityMode.Secure);
 ```
 
 **Backend Sync Workflow:**
 
-Complete example for syncing configs from a backend server:
+Typical workflow is to implement `IConfigBackendService` (UniTask-based) and keep versioning numeric (`ulong`):
 
 ```csharp
-public class ConfigSyncService
+using Cysharp.Threading.Tasks;
+using GameLovers.GameData;
+
+public static class ConfigSync
 {
-    private readonly ConfigsProvider _provider;
-    private readonly ConfigsSerializer _serializer;
-    
-    public ConfigSyncService(ConfigsProvider provider)
+    public static async UniTask SyncIfNeeded(IConfigBackendService backend, ConfigsProvider provider)
     {
-        _provider = provider;
-        _serializer = new ConfigsSerializer(ConfigsSerializerMode.Secure);
-    }
-    
-    public async Task SyncFromServer(string serverUrl)
-    {
-        // 1. Fetch JSON payload from server
-        string json = await FetchConfigsJson(serverUrl);
-        
-        // 2. Check version before applying
-        var payload = JsonConvert.DeserializeObject<ConfigsPayload>(json);
-        if (payload.Version <= _provider.Version)
+        ulong remoteVersion = await backend.GetRemoteVersion();
+        if (remoteVersion <= provider.Version)
         {
-            Debug.Log("Configs already up to date");
             return;
         }
-        
-        // 3. Deserialize into existing provider (triggers observers)
-        _serializer.Deserialize(json, _provider);
-        
-        Debug.Log($"Synced configs to version {_provider.Version}");
+
+        // Your backend service can fetch + deserialize using ConfigsSerializer internally.
+        IConfigsProvider remoteProvider = await backend.FetchRemoteConfiguration(remoteVersion);
+
+        // Apply atomically (updates configs + version).
+        provider.UpdateTo(remoteVersion, remoteProvider.GetAllConfigs());
     }
 }
 ```

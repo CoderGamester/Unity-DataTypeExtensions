@@ -11,15 +11,23 @@ namespace GameLovers.GameData.Samples.ValidationAndMigration
 	/// <summary>
 	/// Editor-only demo (play mode) for validation and migration.
 	/// Demonstrates complex multi-version migrations with intermediate state visualization.
+	/// 
+	/// This sample creates a persistent <see cref="ConfigsProvider"/> that integrates with the
+	/// Config Browser window (Tools > Game Data > Config Browser). The Migrations tab will show
+	/// the sample migrations as "Current" or "Pending" status, with realistic v1 demo data for preview.
 	/// </summary>
 	public sealed class ValidationMigrationDemoController : MonoBehaviour
 	{
 		[SerializeField] private Button _validateButton;
 		[SerializeField] private Button _migrateButton;
 		[SerializeField] private TMP_Text _output;
-    
+
+		private ConfigsProvider _provider;
+
 		private void Awake()
 		{
+			InitializeProvider();
+
 			if (_validateButton != null)
 			{
 				_validateButton.onClick.AddListener(RunValidation);
@@ -33,16 +41,94 @@ namespace GameLovers.GameData.Samples.ValidationAndMigration
 			SetOutput(BuildInitialOutput());
 		}
 
+		private void OnDestroy()
+		{
+			_provider = null;
+		}
+
+#if UNITY_EDITOR
+		/// <summary>
+		/// Provides v1-schema preview data for the Config Browser's migration preview.
+		/// This method is automatically discovered via [MigrationPreviewData] attribute.
+		/// </summary>
+		[GameLoversEditor.GameData.MigrationPreviewData(typeof(SampleEnemyConfig))]
+#endif
+		private static JObject GetSampleEnemyPreviewData()
+		{
+			return new JObject
+			{
+				["Id"] = 1,
+				["Name"] = "Orc Warlord",
+				["Health"] = 150,
+				["Damage"] = 25
+			};
+		}
+
+		private void InitializeProvider()
+		{
+			_provider = new ConfigsProvider();
+
+			// Add SamplePlayerConfig instances for validation demo
+			var playerConfigs = new List<SamplePlayerConfig>
+			{
+				new SamplePlayerConfig
+				{
+					Id = 1,
+					Name = "",
+					MaxHealth = 0,
+					Description = "a"
+				},
+				new SamplePlayerConfig
+				{
+					Id = 2,
+					Name = "Hero",
+					MaxHealth = 100,
+					Description = "Valid config"
+				}
+			};
+			_provider.AddConfigs(c => c.Id, playerConfigs);
+
+			// Add SampleEnemyConfig instances for migration demo
+			// Note: These are v3 schema instances, but the provider version is set to 1
+			// so migrations appear as Current/Pending. Demo data provides realistic v1 preview.
+			var enemyConfigs = new List<SampleEnemyConfig>
+			{
+				new SampleEnemyConfig
+				{
+					Id = 1,
+					Name = "Orc Warlord",
+					AttackDamage = 25,
+					ArmorType = "Heavy",
+					BaseHealth = 120,
+					BonusHealth = 30,
+					Stats = new EnemyStats
+					{
+						DamageReduction = 20,    // 20% damage reduction
+						CritChance = 15,         // 15% crit chance
+						MoveSpeedMultiplier = 0.85f
+					},
+					Abilities = new[] { "Charge", "Battlecry" }
+				}
+			};
+			_provider.AddConfigs(c => c.Id, enemyConfigs);
+
+			// Set provider version to 1 (legacy) so migrations show as Current/Pending
+			// Using UpdateTo with empty dict to just set the version
+			_provider.UpdateTo(version: 1, new Dictionary<Type, System.Collections.IEnumerable>());
+		}
+
 		private static string BuildInitialOutput()
 		{
 			var sb = new StringBuilder(2048);
-			sb.AppendLine("═══════════════════════════════════════════");
+			sb.AppendLine("═════════════════════════════════════════");
+			sb.AppendLine("VALIDATION AND MIGRATION DEMO");
+			sb.AppendLine("═════════════════════════════════════════");
 			sb.AppendLine("Click a button on the left to execute an operation.");
-			sb.AppendLine("═══════════════════════════════════════════");
+			sb.AppendLine("─────────────────────────────────────────");
 			sb.AppendLine();
 
 			sb.AppendLine("CONFIG SCHEMAS:");
-			sb.AppendLine("───────────────────────────────────────────");
+			sb.AppendLine("─────────────────────────────────────────");
 			sb.AppendLine();
 
 			sb.AppendLine("SamplePlayerConfig (for Validation):");
@@ -58,9 +144,9 @@ namespace GameLovers.GameData.Samples.ValidationAndMigration
 			sb.AppendLine("  v3: Health→BaseHealth+BonusHealth, +Stats, +Abilities[]");
 			sb.AppendLine();
 
-			sb.AppendLine("───────────────────────────────────────────");
-			sb.AppendLine("AVAILABLE OPERATIONS:");
-			sb.AppendLine("───────────────────────────────────────────");
+			sb.AppendLine("─────────────────────────────────────────");
+			sb.AppendLine("IN-SCENE OPERATIONS:");
+			sb.AppendLine("─────────────────────────────────────────");
 			sb.AppendLine();
 			sb.AppendLine("[Validate] - Validates SamplePlayerConfig instances");
 			sb.AppendLine("             using validation attributes (Required,");
@@ -70,6 +156,17 @@ namespace GameLovers.GameData.Samples.ValidationAndMigration
 			sb.AppendLine("             (v1→v2→v3) with intermediate states showing");
 			sb.AppendLine("             field renaming, splitting, nested objects,");
 			sb.AppendLine("             and computed values.");
+			sb.AppendLine();
+			sb.AppendLine("─────────────────────────────────────────");
+			sb.AppendLine("CONFIG BROWSER INTEGRATION:");
+			sb.AppendLine("─────────────────────────────────────────");
+			sb.AppendLine("This sample creates a persistent ConfigsProvider");
+			sb.AppendLine("visible in: Tools > Game Data > Config Browser");
+			sb.AppendLine();
+			sb.AppendLine("• Browse Tab: View SamplePlayerConfig and");
+			sb.AppendLine("  SampleEnemyConfig instances");
+			sb.AppendLine("• Migrations Tab: Preview v1→v2→v3 migrations");
+			sb.AppendLine("  with realistic demo data");
 
 			return sb.ToString();
 		}
@@ -149,15 +246,9 @@ namespace GameLovers.GameData.Samples.ValidationAndMigration
 			GameLoversEditor.GameData.MigrationRunner.Initialize(force: true);
 
 			// ═══════════════════════════════════════════════════════════════
-			// Create v1 data (original schema)
+			// Get v1 data (original schema) - reuses the preview data method
 			// ═══════════════════════════════════════════════════════════════
-			var v1Data = new JObject
-			{
-				["Id"] = 1,
-				["Name"] = "Orc Warlord",
-				["Health"] = 150,
-				["Damage"] = 25
-			};
+			var v1Data = GetSampleEnemyPreviewData();
 
 			var sb = new StringBuilder(4096);
 			sb.AppendLine("═══════════════════════════════════════════");

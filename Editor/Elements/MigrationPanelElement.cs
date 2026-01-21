@@ -2,9 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using GameLoversEditor.GameData;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -16,10 +18,15 @@ namespace GameLovers.GameData.Editor
 	/// </summary>
 	public sealed class MigrationPanelElement : VisualElement
 	{
+		private static Dictionary<Type, Func<JObject>> _previewDataProviders;
+
 		private Label _header;
+		private HelpBox _emptyState;
+		private VisualElement _contentContainer;
 		private ListView _listView;
 		private readonly List<MigrationRow> _rows = new List<MigrationRow>();
 
+		private TextField _customJsonInput;
 		private JsonViewerElement _inputJson;
 		private JsonViewerElement _outputJson;
 		private Label _logLabel;
@@ -38,9 +45,23 @@ namespace GameLovers.GameData.Editor
 			_header.style.unityFontStyleAndWeight = FontStyle.Bold;
 			_header.style.marginBottom = 6;
 
+			_emptyState = new HelpBox("No migrations available in this project.", HelpBoxMessageType.Info);
+			_emptyState.style.display = DisplayStyle.None;
+
+			// Vertical split: migrations list (top) + preview section (bottom)
+			var verticalSplit = new TwoPaneSplitView(1, 220, TwoPaneSplitViewOrientation.Vertical);
+			verticalSplit.viewDataKey = "ConfigBrowser_MigrationVerticalSplit";
+			verticalSplit.style.flexGrow = 1;
+
+			verticalSplit.Add(BuildMigrationsList());
+			verticalSplit.Add(BuildPreview());
+
+			_contentContainer = new VisualElement { style = { flexGrow = 1 } };
+			_contentContainer.Add(verticalSplit);
+
 			Add(_header);
-			Add(BuildMigrationsList());
-			Add(BuildPreview());
+			Add(_emptyState);
+			Add(_contentContainer);
 		}
 
 		/// <summary>
@@ -65,6 +86,8 @@ namespace GameLovers.GameData.Editor
 			if (_provider == null)
 			{
 				_header.text = "Migrations (no provider)";
+				_emptyState.style.display = DisplayStyle.None;
+				_contentContainer.style.display = DisplayStyle.Flex;
 				_listView.itemsSource = _rows;
 				_listView.RefreshItems();
 				return;
@@ -76,8 +99,22 @@ namespace GameLovers.GameData.Editor
 				.OrderBy(t => t.Name)
 				.ToList();
 
+			// Show empty state when no migrations are available.
+			if (migratableTypes.Count == 0)
+			{
+				_header.text = "Migrations";
+				_emptyState.style.display = DisplayStyle.Flex;
+				_contentContainer.style.display = DisplayStyle.None;
+				_listView.itemsSource = _rows;
+				_listView.RefreshItems();
+				return;
+			}
+
+			_emptyState.style.display = DisplayStyle.None;
+			_contentContainer.style.display = DisplayStyle.Flex;
+
 			var currentVersion = _provider.Version;
-			var latestVersion = migratableTypes.Count == 0 ? 0 : migratableTypes.Max(t => MigrationRunner.GetLatestVersion(t));
+			var latestVersion = migratableTypes.Max(t => MigrationRunner.GetLatestVersion(t));
 			_header.text = $"Current Config Version: {currentVersion}    Latest Available: {latestVersion}";
 
 			foreach (var type in migratableTypes)
@@ -97,18 +134,21 @@ namespace GameLovers.GameData.Editor
 
 		private VisualElement BuildMigrationsList()
 		{
+			var container = new VisualElement { style = { flexGrow = 1, minHeight = 100 } };
+
 			_listView = new ListView
 			{
 				selectionType = SelectionType.Single,
 				showBorder = true,
 				showAlternatingRowBackgrounds = AlternatingRowBackground.ContentOnly,
-				style = { flexGrow = 1, minHeight = 140, maxHeight = 240 }
+				style = { flexGrow = 1 }
 			};
 
 			_listView.makeItem = MakeRow;
 			_listView.bindItem = (e, i) => BindRow(e, i);
 
-			return _listView;
+			container.Add(_listView);
+			return container;
 		}
 
 		private VisualElement BuildPreview()
@@ -117,14 +157,35 @@ namespace GameLovers.GameData.Editor
 			{
 				style =
 				{
-					marginTop = 8,
-					flexGrow = 1
+					flexGrow = 1,
+					minHeight = 140,
+					borderTopWidth = 1,
+					borderTopColor = new StyleColor(new Color(0f, 0f, 0f, 0.2f)),
+					paddingTop = 4
 				}
 			};
 
 			var title = new Label("Migration Preview");
 			title.style.unityFontStyleAndWeight = FontStyle.Bold;
 			title.style.marginBottom = 4;
+
+			// Custom JSON input section
+			var customInputSection = new VisualElement { style = { marginBottom = 6 } };
+			var customInputLabel = new Label("Custom Input JSON (optional - paste legacy-schema JSON here):");
+			customInputLabel.style.marginBottom = 2;
+			_customJsonInput = new TextField
+			{
+				multiline = true,
+				style =
+				{
+					minHeight = 60,
+					maxHeight = 100,
+					whiteSpace = WhiteSpace.Normal
+				}
+			};
+			_customJsonInput.AddToClassList("unity-text-field__input");
+			customInputSection.Add(customInputLabel);
+			customInputSection.Add(_customJsonInput);
 
 			var split = new TwoPaneSplitView(0, 360, TwoPaneSplitViewOrientation.Horizontal);
 			split.style.flexGrow = 1;
@@ -148,6 +209,7 @@ namespace GameLovers.GameData.Editor
 			_logLabel.style.whiteSpace = WhiteSpace.Normal;
 
 			container.Add(title);
+			container.Add(customInputSection);
 			container.Add(split);
 			container.Add(_logLabel);
 			return container;
@@ -207,7 +269,51 @@ namespace GameLovers.GameData.Editor
 				return;
 			}
 
-			if (!TryGetFirstInstance(row.ConfigType, out var id, out var instance))
+			var currentVersion = _provider.Version;
+			JObject inputJson;
+			string instanceLabel;
+
+			// Priority 1: Custom JSON input from the text field
+			var customJson = _customJsonInput?.value?.Trim();
+			if (!string.IsNullOrEmpty(customJson))
+			{
+				try
+				{
+					inputJson = JObject.Parse(customJson);
+					instanceLabel = $"{row.ConfigType.Name} (custom input)";
+				}
+				catch (Exception ex)
+				{
+					_inputJson.SetJson($"// Invalid JSON: {ex.Message}");
+					_outputJson.SetJson(string.Empty);
+					_logLabel.text = string.Empty;
+					return;
+				}
+			}
+			// Priority 2: Preview data discovered via [MigrationPreviewData] attribute
+			else if (TryGetPreviewData(row.ConfigType, out var factory))
+			{
+				try
+				{
+					inputJson = factory();
+					instanceLabel = $"{row.ConfigType.Name} (preview data)";
+				}
+				catch (Exception ex)
+				{
+					_inputJson.SetJson($"// Failed to create preview data: {ex.Message}");
+					_outputJson.SetJson(string.Empty);
+					_logLabel.text = string.Empty;
+					return;
+				}
+			}
+			// Priority 3: Provider data (current schema)
+			else if (TryGetFirstInstance(row.ConfigType, out var id, out var instance))
+			{
+				inputJson = JObject.FromObject(instance);
+				var idStr = id == 0 ? "singleton" : id.ToString();
+				instanceLabel = $"{row.ConfigType.Name} ({idStr})";
+			}
+			else
 			{
 				_inputJson.SetJson("// No instance found for this config type in the provider.");
 				_outputJson.SetJson(string.Empty);
@@ -215,11 +321,9 @@ namespace GameLovers.GameData.Editor
 				return;
 			}
 
-			var currentVersion = _provider.Version;
-			var inputJson = JObject.FromObject(instance);
 			var outputJson = (JObject)inputJson.DeepClone();
 
-			int applied = 0;
+			int applied;
 			try
 			{
 				applied = MigrationRunner.Migrate(row.ConfigType, outputJson, currentVersion, row.ToVersion);
@@ -234,9 +338,62 @@ namespace GameLovers.GameData.Editor
 
 			_inputJson.SetJson(inputJson.ToString(Formatting.Indented));
 			_outputJson.SetJson(outputJson.ToString(Formatting.Indented));
+			_logLabel.text = $"Migration Log: {row.MigrationType.Name} - SUCCESS (Applied: {applied})  Preview Instance: {instanceLabel}";
+		}
 
-			var idStr = id == 0 ? "singleton" : id.ToString();
-			_logLabel.text = $"Migration Log: {row.MigrationType.Name} - SUCCESS (Applied: {applied})  Preview Instance: {row.ConfigType.Name} ({idStr})";
+		/// <summary>
+		/// Attempts to get preview data for the specified config type using [MigrationPreviewData] attributes.
+		/// </summary>
+		private static bool TryGetPreviewData(Type configType, out Func<JObject> factory)
+		{
+			factory = null;
+			EnsurePreviewDataProvidersInitialized();
+
+			return _previewDataProviders.TryGetValue(configType, out factory);
+		}
+
+		/// <summary>
+		/// Discovers all methods marked with [MigrationPreviewData] attribute via TypeCache.
+		/// </summary>
+		private static void EnsurePreviewDataProvidersInitialized()
+		{
+			if (_previewDataProviders != null)
+			{
+				return;
+			}
+
+			_previewDataProviders = new Dictionary<Type, Func<JObject>>();
+
+			var methods = TypeCache.GetMethodsWithAttribute<MigrationPreviewDataAttribute>();
+			foreach (var method in methods)
+			{
+				if (!method.IsStatic)
+				{
+					Debug.LogWarning($"[MigrationPreviewData] Method {method.DeclaringType?.Name}.{method.Name} must be static. Skipping.");
+					continue;
+				}
+
+				if (method.GetParameters().Length != 0)
+				{
+					Debug.LogWarning($"[MigrationPreviewData] Method {method.DeclaringType?.Name}.{method.Name} must have no parameters. Skipping.");
+					continue;
+				}
+
+				if (method.ReturnType != typeof(JObject))
+				{
+					Debug.LogWarning($"[MigrationPreviewData] Method {method.DeclaringType?.Name}.{method.Name} must return JObject. Skipping.");
+					continue;
+				}
+
+				var attr = method.GetCustomAttribute<MigrationPreviewDataAttribute>();
+				if (attr?.ConfigType == null)
+				{
+					continue;
+				}
+
+				var capturedMethod = method;
+				_previewDataProviders[attr.ConfigType] = () => (JObject)capturedMethod.Invoke(null, null);
+			}
 		}
 
 		private bool TryGetFirstInstance(Type configType, out int id, out object instance)
@@ -297,7 +454,6 @@ namespace GameLovers.GameData.Editor
 		{
 			if (currentVersion >= to) return MigrationState.Applied;
 			if (currentVersion == from) return MigrationState.Current;
-			if (currentVersion < from) return MigrationState.Pending;
 			return MigrationState.Pending;
 		}
 

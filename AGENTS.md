@@ -2,122 +2,100 @@
 
 ## 1. Package Overview
 - **Package**: `com.gamelovers.gamedata`
-- **Unity**: 6000.0+
-- **Assembly**: `Runtime/GameLovers.GameData.asmdef` (note: **allowUnsafeCode = true**)
-- **Dependencies** (see `package.json`)
-  - `com.unity.nuget.newtonsoft-json` (**3.2.1**)
-  - `com.cysharp.unitask` (**2.5.10**)
+- **Unity**: 6000.0+ (Unity 6)
+- **Runtime asmdef**: `Runtime/GameLovers.GameData.asmdef` (**allowUnsafeCode = true**)
+- **Dependencies**
+  - `com.unity.nuget.newtonsoft-json` (3.2.1): runtime JSON serializer + editor tools/tests
+  - `com.cysharp.unitask` (2.5.10): async API in `Runtime/ConfigServices/Interfaces/IConfigBackendService.cs`
+  - `com.unity.textmeshpro` (3.0.6): used by **Samples~** UI scripts (`using TMPro;`)
 
-This package provides core **game design data** utilities:
-- **Config storage + versioning** (`ConfigsProvider`)
-- **Backend sync serialization** (`ConfigsSerializer` via Newtonsoft.Json)
-- **Observable data types** (fields, lists, dictionaries + resolver variants)
-- **Deterministic math** (`floatP` + `MathfloatP`)
-- **Unity-friendly serialization helpers** (e.g., `UnitySerializedDictionary`, `SerializableType<T>`)
-- **Editor tooling (UI Toolkit)**: Config browsing/validation/migration and observable debugging (see section 3)
+This file is for **agents/contributors**. User-facing usage lives in `README.md`.
 
-For user-facing docs, treat `README.md` as the primary entry point. This file is for contributors/agents working on the package itself.
+## 2. What the package provides (map)
+- **Configs**: `ConfigsProvider`, `ConfigsSerializer`, `ConfigsScriptableObject` (`Runtime/ConfigServices/*`)
+- **Observables**: field/list/dictionary/computed + resolver variants (`Runtime/Observables/*`)
+- **Deterministic math**: `floatP`, `MathfloatP` (`Runtime/Math/*`)
+- **Serialization helpers**: `UnitySerializedDictionary`, `SerializableType<T>`, JSON converters (`Runtime/Serialization/*`)
+- **Editor tooling (UI Toolkit)**: Config Browser, Observable Debugger, inspectors, migrations (`Editor/*`)
 
-## 2. Runtime Architecture (high level)
-- **Configs**: provider + serializer (`Runtime/ConfigServices/*`)
-- **Observables**: field/list/dictionary + resolver wrappers (`Runtime/Observables/*`)
-- **Math**: deterministic `floatP` and helpers (`Runtime/Math/*`)
-- **Serialization helpers**: Unity-friendly containers + converters (`Runtime/Serialization/*`)
-- **Utilities + editor drawers**: `EnumSelector`, `ReadOnlyAttribute` + `Editor/Utilities/*`
-- **Migrations**: Editor-only schema migrations (`Editor/Migration/*`)
+## 3. Key entry points (common navigation)
+- **Configs**: `Runtime/ConfigServices/ConfigsProvider.cs`, `Runtime/ConfigServices/ConfigsSerializer.cs`
+- **Interfaces**: `Runtime/ConfigServices/Interfaces/*` (notably `IConfigsProvider`, `IConfigsAdder`, `IConfigBackendService`)
+- **ScriptableObject containers**: `Runtime/ConfigServices/ConfigsScriptableObject.cs` (+ `Interfaces/IConfigsContainer.cs`)
+- **Editor windows**: `Editor/Windows/ConfigBrowserWindow.cs`, `Editor/Windows/ObservableDebugWindow.cs`
+- **Migrations**: `Editor/Migration/*` (`MigrationRunner`, `IConfigMigration`, preview helpers)
+- **Inspector/UI Toolkit elements**: `Editor/Inspectors/*`, `Editor/Elements/*`
+- **Observable core types**: `Runtime/Observables/ObservableField.cs`, `ObservableList.cs`, `ObservableDictionary.cs`, `ComputedField.cs`
+- **Deterministic math**: `Runtime/Math/floatP.cs`, `Runtime/Math/MathfloatP.cs`
+- **Serialization helpers**: `Runtime/Serialization/*` (Unity dict, type serialization, converters)
+- **Tests**: `Tests/Editor/*` (Unit/Integration/Regression/Security/Performance/Smoke/Boundary)
 
-## 3. Key Directories / Files
-- `Runtime/ConfigServices/ConfigsProvider.cs` + `Runtime/ConfigServices/Interfaces/IConfigsProvider.cs`
-- `Runtime/ConfigServices/ConfigsSerializer.cs` + `Runtime/ConfigServices/Interfaces/IConfigsSerializer.cs`
-- `Runtime/ConfigServices/ConfigsScriptableObject.cs` + `Runtime/ConfigServices/Interfaces/IConfigsContainer.cs`
-- `Runtime/Observables/ObservableField.cs`
-- `Runtime/Observables/ObservableDictionary.cs` + `Runtime/Observables/ObservableUpdateType.cs`
-- `Runtime/Math/floatP.cs` + `Runtime/Math/MathfloatP.cs`
-- `Runtime/Serialization/UnitySerializedDictionary.cs` + `Runtime/Serialization/SerializableType.cs`
-- `Runtime/Utilities/EnumSelector.cs`
-- `Runtime/Attributes/` (Validation and ReadOnly attributes)
-- `Editor/Utilities/EnumSelectorPropertyDrawer.cs` + `Editor/Utilities/ReadOnlyPropertyDrawer.cs`
-- `Editor/Migration/MigrationRunner.cs` + `Editor/Migration/IConfigMigration.cs`
-- `Editor/Windows/ConfigBrowserWindow.cs` (UI Toolkit EditorWindow)
-- `Editor/Windows/ObservableDebugWindow.cs` (UI Toolkit EditorWindow)
-- `Editor/Inspectors/ConfigsScriptableObjectInspector.cs` (UI Toolkit Inspector)
-- `Editor/Elements/JsonViewerElement.cs` + `Editor/Elements/ValidationErrorElement.cs` + `Editor/Elements/MigrationPanelElement.cs` + `Editor/Elements/DependencyGraphElement.cs`
-- `Runtime/Observables/ObservableDebugRegistry.cs` (editor-only support for Observable Debugger; debug metadata is private to the registry)
-- `Tests/Editor/` (NUnit tests for core behaviors)
-
-## 4. Important Behaviors / Gotchas
-- **Singleton vs id-keyed**: `GetConfig<T>()` only for singleton; use `GetConfig<T>(int)` for id-keyed configs.
-- **Missing configs throw**: `GetConfigsDictionary<T>()` throws if `T` was never added.
-- **Duplicate adds throw**: `AddSingletonConfig<T>()` and `AddConfigs<T>()` throw on duplicate keys.
-- **Validation is Editor-only**: use `GameLoversEditor.GameData.EditorConfigValidator` for development-time checks.
-- **Migrations are Editor-only**: `MigrationRunner` and `IConfigMigration` live in `Editor/Migration/` since configs are baked into builds; schema migrations only need to run in editor when developers update schemas. Access the migration viewer via `Window > GameLovers > Config Migrations`.
-- **Trusted JSON only**: `ConfigsSerializer` uses `TypeNameHandling.Auto`; do not deserialize untrusted payloads.
-- **Serializable requirement**: config types must be `IsSerializable` unless `[IgnoreServerSerialization]`.
-- **Null payload risk**: `Deserialize(...)` passes `configs?.Configs` into `UpdateTo`; guard if `Configs` can be null.
+## 4. Important behaviors / gotchas (keep in sync with code)
+- **Singleton vs id-keyed**: `GetConfig<T>()` only for singleton; use `GetConfig<T>(int)` for id-keyed.
+- **Duplicate keys throw**: `AddSingletonConfig<T>()` / `AddConfigs<T>()` throw on duplicate ids.
+- **Missing container throws**: `GetConfigsDictionary<T>()` assumes `T` was added.
+- **Versioning is `ulong`**: `ConfigsSerializer.Deserialize` parses `Version` with `ulong.TryParse`; non-numeric strings become `0`.
+- **Security**:
+  - `ConfigsSerializer(TrustedOnly)` uses `TypeNameHandling.Auto` → **trusted payloads only**.
+  - `ConfigsSerializer(Secure)` disables `TypeNameHandling`, but payload still carries type info via dictionary keys; **still validate before applying**.
+- **Editor-only registries**: `ConfigsProvider` registers in editor builds (used by Config Browser).
 - **ConfigsScriptableObject keys must be unique**: duplicate keys throw during `OnAfterDeserialize()`.
-- **ObservableDictionary update flags**: `KeyUpdateOnly` / `UpdateOnly` / `Both` change who is notified.
-- **InvokeUpdate throws for missing keys**: `InvokeUpdate(key)` and `InvokeObserve(key, ...)` assume the key exists.
-- **EnumSelector validity**: call `HasValidSelection()` before `GetSelection()` if enums might have changed; drawer expects `_selection`.
+- **ObservableDictionary update flags**: update flags change which subscribers are notified (key-only vs global vs both).
+- **Missing key calls can throw**: methods that target a specific key generally assume the key exists.
+- **EnumSelector stability**: check validity (`HasValidSelection`) if enums were changed/renamed.
+- **No manual `.meta` edits**: Unity owns `*.meta` generation.
 
-## 4.1 Editor Tools (UI Toolkit)
-- **Config Browser**: `Window > GameLovers > Config Browser`
-  - Browse configs from an assigned `IConfigsProvider`
-  - Export provider contents to JSON
-  - Validate selected config (Browse tab) and Validate All (results displayed in-window)
-  - Migrations tab uses `MigrationRunner` and is conditionally visible
-- **Observable Debugger**: `Window > GameLovers > Observable Debugger`
-  - Lists live observable instances (Field/Computed/List/Dictionary/HashSet)
-  - Uses editor-only self-registration in observable types and `ObservableDebugRegistry` as the data source
-- **ConfigsScriptableObject Inspector**:
-  - UI Toolkit inspector for `ConfigsScriptableObject<,>` derived assets
-  - Shows per-entry duplicate key and validation status; provides "Validate All"
+## 5. Editor tools (menu paths)
+- **Config Browser**: `Window > GameLovers > Config Browser` (browse/validate/export/migrations)
+- **Observable Debugger**: `Window > GameLovers > Observable Debugger` (inspect live observables)
+- **Config migrations**: shown inside Config Browser when migrations exist
 
-## 5. Coding Standards (Unity 6 / C# 9.0)
-- **C#**: C# 9.0 syntax; explicit namespaces; no global usings.
-- **Assemblies**: runtime must not reference `UnityEditor`; editor tooling under `Editor/`.
-- **Determinism**: keep `floatP` operations consistent across platforms.
+## 6. Tests (how to run / where to add)
+- **Run**: Unity Test Runner → **EditMode** (tests live under `Tests/Editor/*`)
+- **Placement**:
+  - `Unit/` for pure logic (preferred)
+  - `Integration/` for editor/tooling interactions
+  - `Security/` for serializer safety expectations
+  - `Performance/` only when measuring allocations/hot paths
 
-## 6. External Package Sources (for API lookups)
-Prefer local Unity/UPM sources when needed:
-- Unity Newtonsoft: `Library/PackageCache/com.unity.nuget.newtonsoft-json/`
+## 7. Common change workflows
+- **Add config type**: `[Serializable]` (or `[IgnoreServerSerialization]`), decide singleton vs id-keyed, add tests.
+- **Change serialization**: update `ConfigsSerializer` + converters; adjust `Security/*` tests.
+- **Change observables**: keep hot paths allocation-free; test subscribe/unsubscribe and update ordering.
+- **Editor UX**: keep editor-only code under `Editor/` and avoid runtime `UnityEditor` refs.
+
+## 8. Samples (maintenance rule)
+- Package samples live in `Samples~/...`.
+- In the **host Unity project**, imported samples live under `Assets/Samples/...` and should be edited there when validating sample behavior.
+- Current sample set (see `package.json`): Reactive UI Demo (uGUI), Reactive UI Demo (UI Toolkit), Designer Workflow, Validation and Migration.
+
+## 9. Release checklist (docs + versioning)
+- Bump `package.json` version
+- Update `CHANGELOG.md` (include upgrade notes when breaking)
+- Ensure samples compile (TextMeshPro is required by sample scripts)
+- Run EditMode tests
+- Update `README.md` if public API / behavior changed
+
+## 10. External package sources (preferred for API lookups)
+- Newtonsoft: `Library/PackageCache/com.unity.nuget.newtonsoft-json/`
 - UniTask: `Library/PackageCache/com.cysharp.unitask/`
+- TextMeshPro: `Library/PackageCache/com.unity.textmeshpro/`
 
-## 7. Dev Workflows (common changes)
-- **Add a new config type**: mark `[Serializable]` (or `[IgnoreServerSerialization]`), decide singleton vs id-keyed, add tests.
-- **Add observable behavior**: avoid allocations in hot paths; add tests for subscribe/unsubscribe and update ordering.
-- **Change serialization**: update `ConfigsSerializer.cs` and verify trusted/untrusted boundaries in tests.
-- **Add editor UX**: keep drawers under `Editor/` and provide a small sample when needed.
+## 11. Coding standards / assembly boundaries
+- **C#**: C# 9.0 syntax; explicit namespaces; no global usings.
+- **Runtime vs Editor**: runtime code must not reference `UnityEditor`; editor tooling stays under `Editor/`.
+- **Performance**: avoid allocations in observable hot paths; prefer tests for allocation regressions when changing core types.
 
-## 8. Samples Overview
+## 12. IL2CPP / AOT / stripping
+- `Runtime/link.xml` exists to prevent stripping of core serialization logic.
+- Keep `SerializableType<T>` and serializer-related reflection IL2CPP-safe; avoid adding reflection-heavy APIs without tests.
 
-Samples are located in `Samples~/` and exposed via `package.json`:
+## 13. When to update docs
+- Update `AGENTS.md` when behavior/entry points change (configs, serializer security, observables, editor tools, tests layout).
+- Update `README.md` when public API/usage changes (installation, examples, requirements).
+- Update `CHANGELOG.md` for notable changes, especially breaking upgrades.
 
-| Sample | Purpose | Key Files |
-|--------|---------|-----------|
-| **Reactive UI Demo (uGUI)** | Demonstrates `ObservableField`, `ObservableList`, `ComputedField`, `ObservableBatch` with uGUI bindings | `ReactiveUGuiDemoController.cs`, `PlayerData.cs`, `ReactiveUGuiControlsContainer.cs`, `ReactiveHealthBar.cs`, `ReactiveInventoryList.cs`, `ReactiveUGuiStatsPanel.cs` |
-| **Reactive UI Demo (UI Toolkit)** | Demonstrates `ObservableField`, `ObservableList`, `ComputedField`, `ObservableBatch` with UI Toolkit bindings | `ReactiveToolkitDemoController.cs`, `PlayerData.cs`, `ReactiveToolkitControlsContainer.cs`, `ReactiveToolkitHealthBar.cs`, `ReactiveToolkitInventoryList.cs`, `ReactiveToolkitStatsPanel.cs`, `ReactiveToolkitDemo.uxml` |
-| **Designer Workflow** | Demonstrates `ConfigsScriptableObject`, `UnitySerializedDictionary`, `EnumSelector` with PropertyDrawer, and loading configs into `ConfigsProvider` at runtime | `ConfigLoader.cs`, `GameSettingsAsset.cs`, `LootTable.cs`, `ItemTypeSelectorPropertyDrawer.cs` |
-| **Validation and Migration** | Editor-only demo for validation attributes and complex multi-version schema migrations (v1→v2→v3) | `SamplePlayerConfig.cs` (validation attributes), `SampleEnemyConfig.cs` + `EnemyStats.cs` (schema evolution), `SampleEnemyConfigMigration_v1_v2.cs` (field renaming, conditional defaults), `SampleEnemyConfigMigration_v2_v3.cs` (field splitting, nested objects, arrays), `ValidationMigrationDemoController.cs` (intermediate state visualization) |
-
-**Notes for sample maintenance:**
-- Samples are imported via Package Manager → GameLovers GameData → Samples
-- Prefer keeping scenes small/robust (avoid unnecessary scene YAML churn); UI may be prefab-based (uGUI) or UXML-based (UI Toolkit)
-- Designer Workflow includes pre-built ScriptableObject assets in `Assets/Resources/`
-- Validation and Migration sample is Editor-only (cannot run in builds)
-
-## 9. Update Policy
-Update this file when:
-- Configs API changes or serialization behavior changes.
-- Observable semantics change (update flags, mutation safety).
-- Deterministic math behavior changes (`floatP`, `MathfloatP`).
-- Editor drawer contracts change or dependencies/asmdef settings change.
-- Namespace or folder structure changes.
-- Sample structure or content changes.
-
-## 10. Unity 6 & AOT Compatibility (Maintenance)
-- `SerializableType<T>` uses AOT-safe type resolution; keep reflection usage compatible with IL2CPP.
-- `Runtime/link.xml` prevents stripping of core serialization logic; add new polymorphic types if needed.
-- `ConfigsSerializer` includes Unity type converters (Color/Vector/Quaternion) for reliable JSON round-tripping.
-- `EnumSelector` is name-based; safe for enum reordering, but handle invalid selections.
-- `EnumSelectorPropertyDrawer` and `ReadOnlyPropertyDrawer` (in `Editor/Utilities/`) support both UI Toolkit (`CreatePropertyGUI`) and IMGUI (`OnGUI`) for compatibility with custom inspectors.
-
+## 14. Quick verification (before shipping changes)
+- Run **EditMode** tests and ensure no new warnings/errors.
+- Import samples once in a host project and confirm they compile (TextMeshPro).
+- If touching serialization, check `Tests/Editor/Security/*` and confirm untrusted payload expectations still hold.
