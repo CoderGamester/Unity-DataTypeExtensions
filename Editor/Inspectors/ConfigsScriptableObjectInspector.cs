@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -17,19 +18,27 @@ namespace GameLovers.GameData.Editor
 	public sealed class ConfigsScriptableObjectInspector : UnityEditor.Editor
 	{
 		private const string ConfigsFieldName = "_configs";
+		private const BindingFlags InstanceFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
+		private static readonly Color ColorOk = new Color(0.25f, 0.6f, 0.3f);
+		private static readonly Color ColorWarning = new Color(0.7f, 0.55f, 0.15f);
+		private static readonly Color ColorError = new Color(0.8f, 0.25f, 0.25f);
+		private static readonly Color ColorBorder = new Color(0.2f, 0.2f, 0.2f, 0.5f);
 
 		private readonly Dictionary<int, EntryStatus> _statusByIndex = new Dictionary<int, EntryStatus>();
 		private readonly HashSet<object> _seenKeys = new HashSet<object>();
 
 		private ListView _listView;
-		private Label _summaryLabel;
+		private Label _entriesLabel;
+		private Label _statsLabel;
+		private VisualElement _statusIndicator;
 
 		/// <inheritdoc />
 		public override VisualElement CreateInspectorGUI()
 		{
 			var root = new VisualElement();
-
 			var configsProp = serializedObject.FindProperty(ConfigsFieldName);
+
 			if (configsProp == null || !configsProp.isArray)
 			{
 				root.Add(new HelpBox($"Expected serialized array field '{ConfigsFieldName}' on {target.GetType().Name}.", HelpBoxMessageType.Error));
@@ -39,37 +48,34 @@ namespace GameLovers.GameData.Editor
 
 			root.Add(BuildHeader(configsProp));
 			root.Add(BuildListView(configsProp));
-
-			// Keep status badges up to date as the user edits values.
-			root.TrackSerializedObjectValue(serializedObject, _ => Revalidate(configsProp));
-			Revalidate(configsProp);
+			root.TrackSerializedObjectValue(serializedObject, _ => Revalidate(configsProp, showFeedback: false));
+			Revalidate(configsProp, showFeedback: false);
 
 			return root;
 		}
 
 		private VisualElement BuildHeader(SerializedProperty configsProp)
 		{
-			var header = new VisualElement
-			{
-				style =
-				{
-					flexDirection = FlexDirection.Row,
-					alignItems = Align.Center,
-					justifyContent = Justify.SpaceBetween,
-					marginBottom = 6,
-				}
-			};
+			var header = CreateFlexRow(Justify.SpaceBetween);
+			header.style.marginBottom = 6;
 
-			_summaryLabel = new Label();
-			_summaryLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+			var leftContainer = CreateFlexRow();
+			_statusIndicator = CreateCircleIndicator(12, 6);
+			_statusIndicator.style.marginRight = 8;
+			_statusIndicator.style.marginTop = 3;
 
-			var validateAllBtn = new Button(() => Revalidate(configsProp))
-			{
-				text = "Validate All"
-			};
+			var statsContainer = new VisualElement();
+			_entriesLabel = CreateBoldLabel();
+			_statsLabel = CreateBoldLabel();
+			statsContainer.Add(_entriesLabel);
+			statsContainer.Add(_statsLabel);
 
-			header.Add(_summaryLabel);
-			header.Add(validateAllBtn);
+			leftContainer.Add(_statusIndicator);
+			leftContainer.Add(statsContainer);
+
+			header.Add(leftContainer);
+			header.Add(new Button(() => ValidateAllWithFeedback(configsProp)) { text = "Validate All" });
+
 			return header;
 		}
 
@@ -81,92 +87,138 @@ namespace GameLovers.GameData.Editor
 				showAlternatingRowBackgrounds = AlternatingRowBackground.ContentOnly,
 				reorderable = true,
 				showBorder = true,
-				style =
-				{
-					flexGrow = 1,
-					minHeight = 200
-				}
+				virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight,
+				style = { flexGrow = 1, minHeight = 200 }
 			};
 
 			_listView.itemsSource = CreateIndexSource(configsProp.arraySize);
 			_listView.makeItem = MakeRow;
 			_listView.bindItem = (e, i) => BindRow(e, configsProp, i);
-
-			_listView.itemsChosen += _ => Revalidate(configsProp);
+			_listView.unbindItem = (e, _) => UnbindRow(e);
+			_listView.itemsChosen += _ => Revalidate(configsProp, showFeedback: false);
 
 			return _listView;
 		}
 
-		private static List<int> CreateIndexSource(int size)
-		{
-			var list = new List<int>(size);
-			for (int i = 0; i < size; i++)
-			{
-				list.Add(i);
-			}
-			return list;
-		}
-
 		private static VisualElement MakeRow()
 		{
-			var row = new VisualElement
-			{
-				style =
-				{
-					flexDirection = FlexDirection.Row,
-					alignItems = Align.Center,
-					paddingLeft = 4,
-					paddingRight = 4,
-					paddingTop = 2,
-					paddingBottom = 2,
-				}
-			};
+			var row = CreateFlexRow();
+			row.style.paddingLeft = row.style.paddingRight = row.style.paddingTop = row.style.paddingBottom = 4;
+			row.style.borderBottomWidth = 1;
+			row.style.borderBottomColor = ColorBorder;
 
 			var keyField = new PropertyField { name = "KeyField" };
-			keyField.style.flexGrow = 1;
+			SetFixedWidth(keyField, 120);
+			keyField.style.marginRight = 8;
 
-			var valueField = new PropertyField { name = "ValueField" };
-			valueField.style.flexGrow = 2;
+			var valueContainer = new Foldout { name = "ValueContainer", text = "Value", value = true };
+			valueContainer.style.flexGrow = 1;
+			valueContainer.style.flexShrink = 1;
 
 			var statusLabel = new Label { name = "StatusLabel" };
-			statusLabel.style.minWidth = 120;
+			SetFixedWidth(statusLabel, 0, 80);
 			statusLabel.style.unityTextAlign = TextAnchor.MiddleRight;
+			statusLabel.style.marginLeft = 8;
 
 			row.Add(keyField);
-			row.Add(valueField);
+			row.Add(valueContainer);
 			row.Add(statusLabel);
+
 			return row;
 		}
 
 		private void BindRow(VisualElement row, SerializedProperty configsProp, int index)
 		{
-			if (index >= configsProp.arraySize)
-			{
+			if (index >= configsProp.arraySize) 
 				return;
-			}
 
 			var elementProp = configsProp.GetArrayElementAtIndex(index);
 			var keyProp = elementProp.FindPropertyRelative("Key");
 			var valueProp = elementProp.FindPropertyRelative("Value");
 
 			var keyField = row.Q<PropertyField>("KeyField");
-			var valueField = row.Q<PropertyField>("ValueField");
+			var valueContainer = row.Q<Foldout>("ValueContainer");
 			var statusLabel = row.Q<Label>("StatusLabel");
 
 			keyField.label = $"[{index}] Key";
-			valueField.label = "Value";
-
 			if (keyProp != null) keyField.BindProperty(keyProp);
-			if (valueProp != null) valueField.BindProperty(valueProp);
+			if (valueProp != null) PopulateValueContainer(valueContainer, valueProp);
 
 			statusLabel.text = GetStatusText(index, out var level);
-			ApplyStatusStyle(statusLabel, level);
+			statusLabel.style.color = GetStatusColor(level);
 		}
 
-		private void Revalidate(SerializedProperty configsProp)
+		private static void PopulateValueContainer(Foldout container, SerializedProperty valueProp)
+		{
+			container.contentContainer.Clear();
+
+			if (!valueProp.hasVisibleChildren)
+			{
+				// Simple type - bind directly to preserve label
+				var simpleField = new PropertyField { label = string.Empty };
+				simpleField.BindProperty(valueProp);
+				container.contentContainer.Add(simpleField);
+				return;
+			}
+
+			// Complex type - iterate through child properties
+			var iterator = valueProp.Copy();
+			var endProperty = valueProp.GetEndProperty();
+
+			if (iterator.NextVisible(true))
+			{
+				do
+				{
+					if (SerializedProperty.EqualContents(iterator, endProperty)) 
+						break;
+
+					// Use BindProperty with a copy to preserve the label
+					var childField = new PropertyField { label = ObjectNames.NicifyVariableName(iterator.name) };
+					childField.BindProperty(iterator.Copy());
+					container.contentContainer.Add(childField);
+				}
+				while (iterator.NextVisible(false));
+			}
+		}
+
+		private static void UnbindRow(VisualElement row)
+		{
+			row.Q<PropertyField>("KeyField")?.Unbind();
+			var valueContainer = row.Q<Foldout>("ValueContainer");
+      
+			if (valueContainer == null) 
+				return;
+
+			foreach (var child in valueContainer.contentContainer.Children())
+			{
+				if (child is PropertyField pf) pf.Unbind();
+			}
+		}
+
+		private void ValidateAllWithFeedback(SerializedProperty configsProp)
+		{
+			var (errorCount, duplicateCount) = Revalidate(configsProp, showFeedback: true);
+			var entryCount = configsProp.arraySize;
+			var hasIssues = errorCount > 0 || duplicateCount > 0;
+
+			var logMessage = hasIssues
+				? $"[{target.name}] Validation completed: {entryCount} entries, {errorCount} errors, {duplicateCount} duplicates"
+				: $"[{target.name}] Validation passed: {entryCount} entries, no issues found";
+
+			if (hasIssues) Debug.LogWarning(logMessage, target);
+			else Debug.Log(logMessage, target);
+
+			var dialogTitle = hasIssues ? "Validation Issues Found" : "Validation Passed";
+			var dialogMessage = hasIssues
+				? $"Found {errorCount} error(s) and {duplicateCount} duplicate(s) in {entryCount} entries.\n\nCheck the console for details."
+				: $"All {entryCount} entries passed validation successfully.";
+
+			EditorUtility.DisplayDialog(dialogTitle, dialogMessage, "OK");
+		}
+
+		private (int errorCount, int duplicateCount) Revalidate(SerializedProperty configsProp, bool showFeedback)
 		{
 			serializedObject.Update();
-
 			_statusByIndex.Clear();
 			_seenKeys.Clear();
 
@@ -186,92 +238,52 @@ namespace GameLovers.GameData.Editor
 						continue;
 					}
 
-					var key = pair.GetType().GetField("Key")?.GetValue(pair);
-					var value = pair.GetType().GetField("Value")?.GetValue(pair);
-
+					var pairType = pair.GetType();
+					var key = pairType.GetField("Key")?.GetValue(pair);
+					var value = pairType.GetField("Value")?.GetValue(pair);
 					var isDuplicate = key != null && !_seenKeys.Add(key);
-					var messages = ValidateObject(value);
+					var validationErrors = ValidateObject(value);
 
-					if (isDuplicate)
-					{
-						duplicateCount++;
-					}
+					if (isDuplicate) duplicateCount++;
+					errorCount += validationErrors.Count;
 
-					if (messages.Count > 0)
-					{
-						errorCount += messages.Count;
-					}
-
-					if (isDuplicate)
-					{
-						_statusByIndex[i] = EntryStatus.DuplicateKey(messages.Count);
-					}
-					else if (messages.Count > 0)
-					{
-						_statusByIndex[i] = EntryStatus.Errors(messages.Count);
-					}
-					else
-					{
-						_statusByIndex[i] = EntryStatus.Ok();
-					}
+					_statusByIndex[i] = isDuplicate
+						? EntryStatus.DuplicateKey(validationErrors.Count)
+						: validationErrors.Count > 0 ? EntryStatus.Errors(validationErrors.Count) : EntryStatus.Ok();
 				}
 			}
 
-			_summaryLabel.text = $"Entries: {configsProp.arraySize}  Errors: {errorCount}  Duplicates: {duplicateCount}";
+			_entriesLabel.text = $"Entries: {configsProp.arraySize}";
+			_statsLabel.text = $"Errors: {errorCount} | Duplicates: {duplicateCount}";
+			_statusIndicator.style.backgroundColor = (errorCount > 0 || duplicateCount > 0) ? ColorError : ColorOk;
 
-			// Keep list indices in sync if size changed.
 			_listView.itemsSource = CreateIndexSource(configsProp.arraySize);
 			_listView.RefreshItems();
-		}
 
-		private static IList TryGetConfigsList(UnityEngine.Object targetObject)
-		{
-			if (targetObject == null) return null;
-			var field = targetObject.GetType().GetField(ConfigsFieldName, BindingFlags.Instance | BindingFlags.NonPublic);
-			return field?.GetValue(targetObject) as IList;
+			return (errorCount, duplicateCount);
 		}
 
 		private static List<string> ValidateObject(object obj)
 		{
 			var messages = new List<string>();
-			if (obj == null)
-			{
-				return messages;
-			}
+			if (obj == null) return messages;
 
 			var type = obj.GetType();
+			foreach (var field in type.GetFields(InstanceFlags))
+				AddValidationMessages(field.GetCustomAttributes(typeof(ValidationAttribute), true), field.GetValue(obj), field.Name, messages);
 
-			foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-			{
-				AddValidationMessages(obj, field.FieldType, field.GetCustomAttributes(typeof(ValidationAttribute), inherit: true), field.GetValue(obj), field.Name, messages);
-			}
-
-			foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-			{
-				if (!prop.CanRead) continue;
-				AddValidationMessages(obj, prop.PropertyType, prop.GetCustomAttributes(typeof(ValidationAttribute), inherit: true), prop.GetValue(obj), prop.Name, messages);
-			}
+			foreach (var prop in type.GetProperties(InstanceFlags).Where(p => p.CanRead))
+				AddValidationMessages(prop.GetCustomAttributes(typeof(ValidationAttribute), true), prop.GetValue(obj), prop.Name, messages);
 
 			return messages;
 		}
 
-		private static void AddValidationMessages(
-			object owner,
-			Type memberType,
-			object[] attributes,
-			object value,
-			string memberName,
-			List<string> messages)
+		private static void AddValidationMessages(object[] attributes, object value, string memberName, List<string> messages)
 		{
-			for (int i = 0; i < attributes.Length; i++)
+			foreach (var attr in attributes)
 			{
-				if (attributes[i] is ValidationAttribute validationAttribute)
-				{
-					if (!validationAttribute.IsValid(value, out var message))
-					{
-						messages.Add($"{memberName}: {message}");
-					}
-				}
+				if (attr is ValidationAttribute va && !va.IsValid(value, out var msg))
+					messages.Add($"{memberName}: {msg}");
 			}
 		}
 
@@ -282,28 +294,52 @@ namespace GameLovers.GameData.Editor
 				level = StatusLevel.Info;
 				return "…";
 			}
-
 			level = status.Level;
 			return status.Text;
 		}
 
-		private static void ApplyStatusStyle(Label label, StatusLevel level)
+		private static VisualElement CreateFlexRow(Justify justify = Justify.FlexStart)
 		{
-			switch (level)
+			return new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.FlexStart, justifyContent = justify } };
+		}
+
+		private static VisualElement CreateCircleIndicator(int size, int radius)
+		{
+			return new VisualElement
 			{
-				case StatusLevel.Ok:
-					label.style.color = new StyleColor(new Color(0.25f, 0.6f, 0.3f));
-					break;
-				case StatusLevel.Warning:
-					label.style.color = new StyleColor(new Color(0.7f, 0.55f, 0.15f));
-					break;
-				case StatusLevel.Error:
-					label.style.color = new StyleColor(new Color(0.8f, 0.25f, 0.25f));
-					break;
-				default:
-					label.style.color = StyleKeyword.Null;
-					break;
-			}
+				style =
+				{
+					width = size, height = size,
+					borderTopLeftRadius = radius, borderTopRightRadius = radius,
+					borderBottomLeftRadius = radius, borderBottomRightRadius = radius
+				}
+			};
+		}
+
+		private static Label CreateBoldLabel() => new Label { style = { unityFontStyleAndWeight = FontStyle.Bold } };
+
+		private static void SetFixedWidth(VisualElement el, int width, int minWidth = 0)
+		{
+			el.style.flexGrow = 0;
+			el.style.flexShrink = 0;
+			if (width > 0) el.style.width = width;
+			if (minWidth > 0) el.style.minWidth = minWidth;
+		}
+
+		private static StyleColor GetStatusColor(StatusLevel level) => level switch
+		{
+			StatusLevel.Ok => new StyleColor(ColorOk),
+			StatusLevel.Warning => new StyleColor(ColorWarning),
+			StatusLevel.Error => new StyleColor(ColorError),
+			_ => StyleKeyword.Null
+		};
+
+		private static List<int> CreateIndexSource(int size) => Enumerable.Range(0, size).ToList();
+
+		private static IList TryGetConfigsList(UnityEngine.Object targetObject)
+		{
+			if (targetObject == null) return null;
+			return targetObject.GetType().GetField(ConfigsFieldName, InstanceFlags)?.GetValue(targetObject) as IList;
 		}
 
 		private readonly struct EntryStatus
@@ -311,35 +347,14 @@ namespace GameLovers.GameData.Editor
 			public readonly string Text;
 			public readonly StatusLevel Level;
 
-			private EntryStatus(string text, StatusLevel level)
-			{
-				Text = text;
-				Level = level;
-			}
+			private EntryStatus(string text, StatusLevel level) { Text = text; Level = level; }
 
-			// Creates a status indicating validation passed
 			public static EntryStatus Ok() => new EntryStatus("OK", StatusLevel.Ok);
-
-			// Creates a status indicating validation errors were found
 			public static EntryStatus Errors(int count) => new EntryStatus($"Errors: {count}", StatusLevel.Error);
-
-			// Creates a status indicating a duplicate key was detected
-			public static EntryStatus DuplicateKey(int errorCount) =>
-				errorCount > 0
-					? new EntryStatus($"DUPLICATE (+{errorCount})", StatusLevel.Warning)
-					: new EntryStatus("DUPLICATE", StatusLevel.Warning);
-
-			// Creates a status with a custom error message
+			public static EntryStatus DuplicateKey(int errorCount) => new EntryStatus(errorCount > 0 ? $"DUPLICATE (+{errorCount})" : "DUPLICATE", StatusLevel.Warning);
 			public static EntryStatus Error(string message) => new EntryStatus(message, StatusLevel.Error);
 		}
 
-		private enum StatusLevel
-		{
-			Info, // Informational status (neutral color)
-			Ok, // Validation passed (positive color)
-			Warning, // Non-critical issue such as duplicate keys (warning color)
-			Error // Validation failure (error color)
-		}
+		private enum StatusLevel { Info, Ok, Warning, Error }
 	}
 }
-

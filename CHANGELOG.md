@@ -18,8 +18,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Added Newtonsoft JSON converters for `Color`, `Vector2`, `Vector3`, `Vector4`, and `Quaternion` to `ConfigsSerializer`
 - Added `ComputedField<T>` for derived observables with automatic dependency tracking, with fluent `Select` and `CombineWith` extension methods 
 - Added `ObservableHashSet<T>` collection type with observation and batch support
+- Added `ObservableBatch` to scope/batch observable updates
 - Added `Configs.Validation` framework with `[Required]`, `[Range]`, and `[MinLength]` attributes
+- Added Editor-only config validation tooling (`EditorConfigValidator`, `ValidationResult`)
 - Added `Secure` serialization mode to `ConfigsSerializer` for safe remote payloads
+- Added config schema migration framework (Editor-only) and migration window (`MigrationRunner`, `IConfigMigration`, `ConfigMigrationAttribute`)
+- Added unified Config Browser editor tooling (window + UI Toolkit elements)
+- Added ScriptableObject inspector tooling for config containers (`ConfigsScriptableObjectInspector`)
+- Added Observable Debugger editor tooling and debug registry (`ObservableDebugWindow`, `ObservableDebugRegistry`)
+- Added observable resolver types (`ObservableResolverField`, `ObservableResolverList`, `ObservableResolverDictionary`)
 
 **Changed**:
 - **BREAKING**: Package renamed from `com.gamelovers.dataextensions` to `com.gamelovers.gamedata`

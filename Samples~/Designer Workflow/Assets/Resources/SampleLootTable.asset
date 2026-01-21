@@ -9,9 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: PLACEHOLDER_LOOTTABLEASSET, type: 3}
+  m_Script: {fileID: 11500000, guid: 40ed7137ee25a4b2ea1b01dced9cefcb, type: 3}
   m_Name: SampleLootTable
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: GameLovers.GameData.Samples.DesignerWorkflow::GameLovers.GameData.Samples.DesignerWorkflow.LootTableAsset
   _dropRates:
     _keyData:
     - _selection: Weapon
