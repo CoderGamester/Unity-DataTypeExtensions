@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="ReactiveToolkitDemo.uss" />
+
+    <ui:VisualElement name="gamedata-reactiveui-root" class="root">
+        <!-- LEFT: Title, description, buttons (matching uGUI layout) -->
+        <ui:VisualElement class="left-panel">
+            <ui:Label text="Reactive UI Demo" class="title" />
+            <ui:Label text="Demonstrates reactive data binding with Unity UI elements." class="description" />
+
+            <ui:VisualElement class="buttons-container">
+                <ui:Button name="damageButton" text="Take 10 Damage" class="control-button" />
+                <ui:Button name="healButton" text="Heal 10" class="control-button" />
+                <ui:Button name="baseDamageButton" text="Base Damage +1" class="control-button" />
+                <ui:Button name="weaponBonusButton" text="Weapon Bonus +1" class="control-button" />
+                <ui:Button name="addItemButton" text="Add Item" class="control-button" />
+                <ui:Button name="removeItemButton" text="Remove Last Item" class="control-button" />
+                <ui:Button name="batchButton" text="Batch Update (Atomic)" class="control-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- RIGHT: Reactive displays (matching uGUI layout) -->
+        <ui:VisualElement class="right-panel">
+            <ui:VisualElement class="display-card">
+                <!-- Health Section -->
+                <ui:VisualElement class="display-section">
+                    <ui:Label text="Health" class="section-header" />
+                    <ui:ProgressBar name="healthBar" low-value="0" high-value="100" value="100" class="health-bar" />
+                    <ui:Label name="healthLabel" text="Health: 100/100" class="stats-label" />
+                </ui:VisualElement>
+
+                <!-- Stats Section -->
+                <ui:VisualElement class="display-section">
+                    <ui:Label text="Stats" class="section-header" />
+                    <ui:Label name="baseDamageLabel" text="BaseDamage: 0" class="stats-label" />
+                    <ui:Label name="weaponBonusLabel" text="WeaponBonus: 0" class="stats-label" />
+                    <ui:Label name="damageLabel" text="TotalDamage (computed): 0" class="stats-label" />
+                </ui:VisualElement>
+
+                <!-- Inventory Section -->
+                <ui:VisualElement class="display-section">
+                    <ui:Label text="Inventory" class="section-header" />
+                    <ui:ScrollView name="inventoryList" class="inventory-list" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

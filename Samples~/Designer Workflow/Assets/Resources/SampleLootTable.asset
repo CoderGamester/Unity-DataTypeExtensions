@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40ed7137ee25a4b2ea1b01dced9cefcb, type: 3}
+  m_Name: SampleLootTable
+  m_EditorClassIdentifier: GameLovers.GameData.Samples.DesignerWorkflow::GameLovers.GameData.Samples.DesignerWorkflow.LootTableAsset
+  _dropRates:
+    _keyData:
+    - _selection: Weapon
+    - _selection: Armor
+    - _selection: Consumable
+    - _selection: Material
+    _valueData:
+    - 0.15
+    - 0.1
+    - 0.35
+    - 0.4

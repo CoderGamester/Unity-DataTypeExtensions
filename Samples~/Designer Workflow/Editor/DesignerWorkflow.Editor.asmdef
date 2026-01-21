@@ -1,0 +1,21 @@
+{
+  "name": "GameLovers.GameData.Samples.DesignerWorkflow.Editor",
+  "rootNamespace": "",
+  "references": [
+    "GameLovers.GameData",
+    "GameLovers.GameData.Editor",
+    "GameLovers.GameData.Samples.DesignerWorkflow"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
+

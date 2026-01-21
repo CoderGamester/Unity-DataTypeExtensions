@@ -1,0 +1,18 @@
+{
+  "name": "GameLovers.GameData.Samples.DesignerWorkflow",
+  "rootNamespace": "",
+  "references": [
+    "GameLovers.GameData",
+    "Unity.TextMeshPro"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
+

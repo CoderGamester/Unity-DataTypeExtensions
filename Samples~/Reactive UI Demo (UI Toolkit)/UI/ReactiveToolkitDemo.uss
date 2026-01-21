@@ -1,0 +1,122 @@
+/* Reactive UI Demo (UI Toolkit) - Matching uGUI visual layout */
+/* Reference: uGUI uses Canvas Scaler at 1920x1080, match height */
+
+#gamedata-reactiveui-root.root {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    flex-direction: row;
+    background-color: rgb(42, 42, 42);
+}
+
+/* ===== LEFT PANEL ===== */
+.left-panel {
+    width: 40%;
+    padding: 40px 30px 40px 40px;
+    justify-content: flex-start;
+}
+
+.title {
+    -unity-font-style: bold;
+    font-size: 52px;
+    color: rgb(255, 255, 255);
+    margin-bottom: 12px;
+}
+
+.description {
+    font-size: 42px;
+    color: rgb(200, 200, 200);
+    margin-bottom: 30px;
+    white-space: normal;
+}
+
+.buttons-container {
+    flex-grow: 0;
+}
+
+.control-button {
+    height: 80px;
+    font-size: 32px;
+    margin-bottom: 10px;
+    background-color: rgb(60, 60, 60);
+    border-color: rgb(80, 80, 80);
+    border-width: 1px;
+    border-radius: 4px;
+    color: rgb(220, 220, 220);
+}
+
+.control-button:hover {
+    background-color: rgb(75, 75, 75);
+}
+
+.control-button:active {
+    background-color: rgb(50, 50, 50);
+}
+
+/* ===== RIGHT PANEL ===== */
+.right-panel {
+    width: 60%;
+    padding: 40px 40px 40px 30px;
+}
+
+.display-card {
+    flex-grow: 1;
+    background-color: rgb(32, 32, 32);
+    border-radius: 12px;
+    padding: 30px;
+}
+
+.display-section {
+    margin-bottom: 24px;
+}
+
+.section-header {
+    -unity-font-style: bold;
+    font-size: 42px;
+    color: rgb(255, 255, 255);
+    margin-bottom: 10px;
+}
+
+/* Health bar - green color matching uGUI */
+.health-bar {
+    height: 40px;
+    margin-bottom: 8px;
+}
+
+.health-bar .unity-progress-bar__background {
+    background-color: rgb(45, 45, 45);
+    border-radius: 4px;
+}
+
+.health-bar .unity-progress-bar__progress {
+    background-color: rgb(76, 175, 80);
+    border-radius: 4px;
+}
+
+.health-bar .unity-progress-bar__title {
+    display: none;
+}
+
+/* Stats labels - matching uGUI 36px */
+.stats-label {
+    font-size: 36px;
+    color: rgb(255, 255, 255);
+    margin-bottom: 4px;
+}
+
+/* Inventory list */
+.inventory-list {
+    min-height: 250px;
+    max-height: 350px;
+    padding: 12px;
+    background-color: rgb(45, 45, 45);
+    border-radius: 8px;
+}
+
+.inventory-list Label {
+    font-size: 32px;
+    color: rgb(220, 220, 220);
+    margin-bottom: 4px;
+}
