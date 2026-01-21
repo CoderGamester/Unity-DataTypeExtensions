@@ -12,7 +12,7 @@ namespace GameLovers.GameData.Editor
 {
 	/// <summary>
 	/// Editor window that displays all active observable instances tracked by <see cref="ObservableDebugRegistry"/>.
-	/// Access via <c>Window/GameLovers/Observable Debugger</c>.
+	/// Access via <c>Tools/Game Data/Observable Debugger</c>.
 	/// </summary>
 	/// <remarks>
 	/// <para>Observables automatically register themselves when constructed in the editor via the self-registration pattern.</para>

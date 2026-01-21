@@ -151,7 +151,7 @@ Samples~/
 
 <!-- Add configBrowser.gif -->
 
-- **Menu**: `Window > GameLovers > Config Browser`
+- **Menu**: `Tools > Game Data > Config Browser`
 - **Purpose**: Unified window to browse configs from a provider, validate them, export JSON, and preview migrations.
 - **Highlights**:
   - Browse tab: select a config entry to view JSON and run **Validate** for the selection.
@@ -162,7 +162,7 @@ Samples~/
 
 <!-- Add observableDebugger.png -->
 
-- **Menu**: `Window > GameLovers > Observable Debugger`
+- **Menu**: `Tools > Game Data > Observable Debugger`
 - **Purpose**: Inspect live observable instances (`ObservableField`, `ComputedField`, and observable collections).
 - **Highlights**:
   - Filtering by name, kind, and “active only”.

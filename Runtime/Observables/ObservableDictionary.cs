@@ -523,7 +523,7 @@ namespace GameLovers.GameData
 		// EDITOR-ONLY: Observable Debug Window Support
 		// ═══════════════════════════════════════════════════════════════════════════
 		// This section provides automatic registration of observable instances for
-		// the Observable Debug Window (Window > GameLovers > Observable Debugger).
+		// the Observable Debug Window (Tools > Game Data > Observable Debugger).
 		//
 		// Features:
 		// - Zero configuration required from users

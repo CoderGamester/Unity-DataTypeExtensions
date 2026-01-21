@@ -39,24 +39,6 @@ namespace GameLovers.GameData.Samples.Migration
 			_provider = null;
 		}
 
-#if UNITY_EDITOR
-		/// <summary>
-		/// Provides v1-schema preview data for the Config Browser's migration preview.
-		/// This method is automatically discovered via [MigrationPreviewData] attribute.
-		/// </summary>
-		[GameLoversEditor.GameData.MigrationPreviewData(typeof(SampleEnemyConfig))]
-#endif
-		private static Newtonsoft.Json.Linq.JObject GetSampleEnemyPreviewData()
-		{
-			return new Newtonsoft.Json.Linq.JObject
-			{
-				["Id"] = 1,
-				["Name"] = "Orc Warlord",
-				["Health"] = 150,
-				["Damage"] = 25
-			};
-		}
-
 		private void InitializeProvider()
 		{
 			_provider = new ConfigsProvider();
@@ -92,7 +74,7 @@ namespace GameLovers.GameData.Samples.Migration
 		private void OpenConfigBrowser()
 		{
 #if UNITY_EDITOR
-			EditorApplication.ExecuteMenuItem("Window/GameLovers/Config Browser");
+			EditorApplication.ExecuteMenuItem("Tools/Game Data/Config Browser");
 #else
 			Debug.Log("Config Browser is only available in the Unity Editor.");
 #endif
@@ -100,6 +82,14 @@ namespace GameLovers.GameData.Samples.Migration
 
 		private static string BuildInitialOutput()
 		{
+			var sampleJson =
+				"{\n" +
+				"  \"Id\": 1,\n" +
+				"  \"Name\": \"Orc Warlord\",\n" +
+				"  \"Health\": 150,\n" +
+				"  \"Damage\": 25\n" +
+				"}";
+
 			var sb = new StringBuilder(2048);
 			sb.AppendLine("═════════════════════════════════════════");
 			sb.AppendLine("SCHEMA MIGRATION DEMO");
@@ -116,10 +106,16 @@ namespace GameLovers.GameData.Samples.Migration
 			sb.AppendLine("WORKFLOW:");
 			sb.AppendLine("─────────────────────────────────────────");
 			sb.AppendLine("1. Enter Play Mode (registers the provider)");
-			sb.AppendLine("2. Open Config Browser (Window > GameLovers > Config Browser)");
+			sb.AppendLine("2. Open Config Browser (Tools > Game Data > Config Browser)");
 			sb.AppendLine("3. Go to the 'Migrations' tab");
-			sb.AppendLine("4. Preview and Apply migrations individually or all at once");
+			sb.AppendLine("4. Paste the v1 JSON below into 'Custom Input JSON'");
+			sb.AppendLine("5. Select target version and click 'Preview Migration'");
 			sb.AppendLine();
+			sb.AppendLine("V1 SAMPLE JSON (copy this):");
+			sb.AppendLine("─────────────────────────────────────────");
+			sb.AppendLine(sampleJson);
+			sb.AppendLine();
+			sb.AppendLine("─────────────────────────────────────────");
 			sb.AppendLine("Note: The provider version is currently set to 1.");
 
 			return sb.ToString();

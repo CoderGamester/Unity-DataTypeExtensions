@@ -2,11 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using GameLoversEditor.GameData;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -18,8 +16,6 @@ namespace GameLovers.GameData.Editor
 	/// </summary>
 	public sealed class MigrationPanelElement : VisualElement
 	{
-		private static Dictionary<Type, Func<JObject>> _previewDataProviders;
-
 		private Label _header;
 		private HelpBox _emptyState;
 		private VisualElement _contentContainer;
@@ -27,6 +23,9 @@ namespace GameLovers.GameData.Editor
 		private readonly List<MigrationRow> _rows = new List<MigrationRow>();
 
 		private TextField _customJsonInput;
+		private DropdownField _migrationDropdown;
+		private Button _previewButton;
+		private Button _applyButton;
 		private JsonViewerElement _inputJson;
 		private JsonViewerElement _outputJson;
 		private Label _logLabel;
@@ -90,6 +89,7 @@ namespace GameLovers.GameData.Editor
 				_contentContainer.style.display = DisplayStyle.Flex;
 				_listView.itemsSource = _rows;
 				_listView.RefreshItems();
+				RebuildMigrationDropdown();
 				return;
 			}
 
@@ -107,6 +107,7 @@ namespace GameLovers.GameData.Editor
 				_contentContainer.style.display = DisplayStyle.None;
 				_listView.itemsSource = _rows;
 				_listView.RefreshItems();
+				RebuildMigrationDropdown();
 				return;
 			}
 
@@ -130,11 +131,123 @@ namespace GameLovers.GameData.Editor
 
 			_listView.itemsSource = _rows;
 			_listView.RefreshItems();
+
+			// Populate the migration dropdown
+			RebuildMigrationDropdown();
+		}
+
+		private void RebuildMigrationDropdown()
+		{
+			var choices = _rows
+				.Select(r => $"{r.ConfigType.Name}: v{r.FromVersion} → v{r.ToVersion}")
+				.ToList();
+
+			_migrationDropdown.choices = choices;
+			if (choices.Count > 0)
+			{
+				_migrationDropdown.index = 0;
+			}
+
+			var hasChoices = choices.Count > 0;
+			_previewButton.SetEnabled(hasChoices);
+			_applyButton.SetEnabled(hasChoices && _provider != null);
+		}
+
+		private void OnPreviewButtonClicked()
+		{
+			var selectedIndex = _migrationDropdown.index;
+			if (selectedIndex < 0 || selectedIndex >= _rows.Count)
+			{
+				return;
+			}
+
+			RunPreview(_rows[selectedIndex]);
+		}
+
+		private void OnApplyButtonClicked()
+		{
+			var selectedIndex = _migrationDropdown.index;
+			if (selectedIndex < 0 || selectedIndex >= _rows.Count || _provider == null)
+			{
+				return;
+			}
+
+			var row = _rows[selectedIndex];
+			ApplyMigration(row);
+		}
+
+		private void ApplyMigration(MigrationRow row)
+		{
+			// UpdateTo is only available on ConfigsProvider, not the interface
+			if (!(_provider is ConfigsProvider concreteProvider))
+			{
+				_logLabel.text = "Apply Failed: Provider does not support UpdateTo (must be ConfigsProvider).";
+				return;
+			}
+
+			var currentVersion = _provider.Version;
+
+			// Get all configs of this type from the provider
+			var allConfigs = _provider.GetAllConfigs();
+			if (!allConfigs.TryGetValue(row.ConfigType, out var container))
+			{
+				_logLabel.text = $"Apply Failed: No configs of type {row.ConfigType.Name} found in provider.";
+				return;
+			}
+
+			// Read configs into a list of (id, value) pairs
+			if (!TryReadConfigs(container, out var entries) || entries.Count == 0)
+			{
+				_logLabel.text = $"Apply Failed: Could not read configs of type {row.ConfigType.Name}.";
+				return;
+			}
+
+			try
+			{
+				// Migrate each config and collect results
+				var migratedEntries = new List<(int Id, object Value)>();
+				int totalApplied = 0;
+
+				foreach (var entry in entries)
+				{
+					var inputJson = JObject.FromObject(entry.Value);
+					var outputJson = (JObject)inputJson.DeepClone();
+
+					var applied = MigrationRunner.Migrate(row.ConfigType, outputJson, currentVersion, row.ToVersion);
+					totalApplied += applied;
+
+					// Deserialize back to the config type
+					var migratedValue = outputJson.ToObject(row.ConfigType);
+					migratedEntries.Add((entry.Id, migratedValue));
+				}
+
+				// Create a new dictionary with migrated values using reflection
+				var dictionaryType = typeof(Dictionary<,>).MakeGenericType(typeof(int), row.ConfigType);
+				var newDictionary = (IDictionary)Activator.CreateInstance(dictionaryType);
+
+				foreach (var (id, value) in migratedEntries)
+				{
+					newDictionary.Add(id, value);
+				}
+
+				// Update the provider
+				var updateDict = new Dictionary<Type, IEnumerable> { { row.ConfigType, newDictionary } };
+				concreteProvider.UpdateTo(row.ToVersion, updateDict);
+
+				_logLabel.text = $"Apply Success: Migrated {entries.Count} config(s), {totalApplied} migration step(s) applied. Provider now at v{row.ToVersion}.";
+
+				// Rebuild to reflect new state
+				Rebuild();
+			}
+			catch (Exception ex)
+			{
+				_logLabel.text = $"Apply Failed: {ex.Message}";
+			}
 		}
 
 		private VisualElement BuildMigrationsList()
 		{
-			var container = new VisualElement { style = { flexGrow = 1, minHeight = 100 } };
+			var container = new VisualElement { style = { flexGrow = 1, minHeight = 50 } };
 
 			_listView = new ListView
 			{
@@ -158,7 +271,7 @@ namespace GameLovers.GameData.Editor
 				style =
 				{
 					flexGrow = 1,
-					minHeight = 140,
+					minHeight = 60,
 					borderTopWidth = 1,
 					borderTopColor = new StyleColor(new Color(0f, 0f, 0f, 0.2f)),
 					paddingTop = 4
@@ -171,25 +284,49 @@ namespace GameLovers.GameData.Editor
 
 			// Custom JSON input section
 			var customInputSection = new VisualElement { style = { marginBottom = 6 } };
-			var customInputLabel = new Label("Custom Input JSON (optional - paste legacy-schema JSON here):");
+			var customInputLabel = new Label("Custom Input JSON (paste legacy-schema JSON here):");
 			customInputLabel.style.marginBottom = 2;
+
 			_customJsonInput = new TextField
 			{
 				multiline = true,
 				style =
 				{
-					minHeight = 60,
-					maxHeight = 100,
-					whiteSpace = WhiteSpace.Normal
+					minHeight = 40,
+					maxHeight = 100
 				}
 			};
 			_customJsonInput.AddToClassList("unity-text-field__input");
+
+			// Migration selection and preview button row
+			var previewControlsRow = new VisualElement
+			{
+				style =
+				{
+					flexDirection = FlexDirection.Row,
+					alignItems = Align.Center,
+					marginTop = 4
+				}
+			};
+
+			var dropdownLabel = new Label("Target Version:") { style = { marginRight = 4 } };
+			_migrationDropdown = new DropdownField { style = { minWidth = 120, marginRight = 8 } };
+			_previewButton = new Button(OnPreviewButtonClicked) { text = "Preview" };
+			_applyButton = new Button(OnApplyButtonClicked) { text = "Apply Migration" };
+			_applyButton.style.marginLeft = 8;
+
+			previewControlsRow.Add(dropdownLabel);
+			previewControlsRow.Add(_migrationDropdown);
+			previewControlsRow.Add(_previewButton);
+			previewControlsRow.Add(_applyButton);
+
 			customInputSection.Add(customInputLabel);
 			customInputSection.Add(_customJsonInput);
+			customInputSection.Add(previewControlsRow);
 
 			var split = new TwoPaneSplitView(0, 360, TwoPaneSplitViewOrientation.Horizontal);
 			split.style.flexGrow = 1;
-			split.style.minHeight = 140;
+			split.style.minHeight = 60;
 
 			var left = new VisualElement { style = { flexGrow = 1 } };
 			left.Add(new Label("Input"));
@@ -234,10 +371,6 @@ namespace GameLovers.GameData.Editor
 			row.Add(new Label { name = "Migration", style = { minWidth = 100 } });
 			row.Add(new Label { name = "State", style = { minWidth = 90 } });
 
-			var button = new Button { name = "Action", text = "Migrate" };
-			button.style.marginLeft = StyleKeyword.Auto;
-			row.Add(button);
-
 			return row;
 		}
 
@@ -249,17 +382,6 @@ namespace GameLovers.GameData.Editor
 			row.Q<Label>("Type").text = data.ConfigType.Name;
 			row.Q<Label>("Migration").text = $"v{data.FromVersion} -> v{data.ToVersion}";
 			row.Q<Label>("State").text = data.State.ToString();
-
-			var button = row.Q<Button>("Action");
-			button.SetEnabled(_provider != null && data.State != MigrationState.Applied);
-			if (button.userData is Action previous)
-			{
-				button.clicked -= previous;
-			}
-
-			Action current = () => RunPreview(data);
-			button.userData = current;
-			button.clicked += current;
 		}
 
 		private void RunPreview(MigrationRow row)
@@ -290,23 +412,7 @@ namespace GameLovers.GameData.Editor
 					return;
 				}
 			}
-			// Priority 2: Preview data discovered via [MigrationPreviewData] attribute
-			else if (TryGetPreviewData(row.ConfigType, out var factory))
-			{
-				try
-				{
-					inputJson = factory();
-					instanceLabel = $"{row.ConfigType.Name} (preview data)";
-				}
-				catch (Exception ex)
-				{
-					_inputJson.SetJson($"// Failed to create preview data: {ex.Message}");
-					_outputJson.SetJson(string.Empty);
-					_logLabel.text = string.Empty;
-					return;
-				}
-			}
-			// Priority 3: Provider data (current schema)
+			// Priority 2: Provider data (current schema)
 			else if (TryGetFirstInstance(row.ConfigType, out var id, out var instance))
 			{
 				inputJson = JObject.FromObject(instance);
@@ -339,61 +445,6 @@ namespace GameLovers.GameData.Editor
 			_inputJson.SetJson(inputJson.ToString(Formatting.Indented));
 			_outputJson.SetJson(outputJson.ToString(Formatting.Indented));
 			_logLabel.text = $"Migration Log: {row.MigrationType.Name} - SUCCESS (Applied: {applied})  Preview Instance: {instanceLabel}";
-		}
-
-		/// <summary>
-		/// Attempts to get preview data for the specified config type using [MigrationPreviewData] attributes.
-		/// </summary>
-		private static bool TryGetPreviewData(Type configType, out Func<JObject> factory)
-		{
-			factory = null;
-			EnsurePreviewDataProvidersInitialized();
-
-			return _previewDataProviders.TryGetValue(configType, out factory);
-		}
-
-		/// <summary>
-		/// Discovers all methods marked with [MigrationPreviewData] attribute via TypeCache.
-		/// </summary>
-		private static void EnsurePreviewDataProvidersInitialized()
-		{
-			if (_previewDataProviders != null)
-			{
-				return;
-			}
-
-			_previewDataProviders = new Dictionary<Type, Func<JObject>>();
-
-			var methods = TypeCache.GetMethodsWithAttribute<MigrationPreviewDataAttribute>();
-			foreach (var method in methods)
-			{
-				if (!method.IsStatic)
-				{
-					Debug.LogWarning($"[MigrationPreviewData] Method {method.DeclaringType?.Name}.{method.Name} must be static. Skipping.");
-					continue;
-				}
-
-				if (method.GetParameters().Length != 0)
-				{
-					Debug.LogWarning($"[MigrationPreviewData] Method {method.DeclaringType?.Name}.{method.Name} must have no parameters. Skipping.");
-					continue;
-				}
-
-				if (method.ReturnType != typeof(JObject))
-				{
-					Debug.LogWarning($"[MigrationPreviewData] Method {method.DeclaringType?.Name}.{method.Name} must return JObject. Skipping.");
-					continue;
-				}
-
-				var attr = method.GetCustomAttribute<MigrationPreviewDataAttribute>();
-				if (attr?.ConfigType == null)
-				{
-					continue;
-				}
-
-				var capturedMethod = method;
-				_previewDataProviders[attr.ConfigType] = () => (JObject)capturedMethod.Invoke(null, null);
-			}
 		}
 
 		private bool TryGetFirstInstance(Type configType, out int id, out object instance)
@@ -457,9 +508,6 @@ namespace GameLovers.GameData.Editor
 			return MigrationState.Pending;
 		}
 
-		/// <summary>
-		/// Represents a single config entry (ID and value) read from the provider.
-		/// </summary>
 		private readonly struct ConfigEntry
 		{
 			/// <summary>The config ID (0 for singletons).</summary>
@@ -494,9 +542,6 @@ namespace GameLovers.GameData.Editor
 			}
 		}
 
-		/// <summary>
-		/// Represents the application state of a migration relative to the current provider version.
-		/// </summary>
 		private enum MigrationState
 		{
 			Applied, // The migration has already been applied (current version is greater than or equal to ToVersion)

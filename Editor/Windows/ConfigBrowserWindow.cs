@@ -13,7 +13,7 @@ namespace GameLovers.GameData.Editor
 {
 	/// <summary>
 	/// Editor window that provides a unified interface for browsing, validating, and migrating config data.
-	/// Access via <c>Window/GameLovers/Config Browser</c>.
+	/// Access via <c>Tools/Game Data/Config Browser</c>.
 	/// </summary>
 	/// <remarks>
 	/// <para>The Browse tab displays a tree view of all configs in the assigned provider with JSON preview and validation.</para>
@@ -27,23 +27,33 @@ namespace GameLovers.GameData.Editor
 		private int _selectedProviderId = -1;
 		private List<ConfigsProviderDebugRegistry.ProviderSnapshot> _snapshots = new();
 
+		// Global toolbar elements
 		private Toolbar _toolbar;
 		private ToolbarMenu _providerMenu;
-		private ToolbarSearchField _searchField;
-		private Button _validateAllButton;
-		private Button _exportJsonButton;
-		private Button _refreshButton;
-
 		private ToolbarToggle _browseTab;
 		private ToolbarToggle _migrationsTab;
+
+		// Browse action bar elements (tab-specific)
+		private Toolbar _browseActionBar;
+		private ToolbarSearchField _searchField;
+		private Button _validateAllButton;
+		private Button _exportAllButton;
+
+		// Change detection: track provider data fingerprint to auto-refresh when data changes.
+		private int _lastConfigTypeCount = -1;
+		private int _lastTotalConfigCount = -1;
+
+		// Tab content roots
 		private VisualElement _browseRoot;
 		private VisualElement _migrationsRoot;
 		private MigrationPanelElement _migrationPanel;
 
+		// Browse tab elements
 		private TreeView _treeView;
 		private JsonViewerElement _jsonViewer;
 		private Label _detailsHeader;
 		private Button _validateSelectedButton;
+		private Button _exportSelectedButton;
 
 		private VisualElement _validationPanel;
 		private Label _validationHeaderLabel;
@@ -93,9 +103,10 @@ namespace GameLovers.GameData.Editor
 			rootVisualElement.Clear();
 			rootVisualElement.style.flexGrow = 1;
 
+			// Global toolbar: Provider + Tabs
 			rootVisualElement.Add(BuildToolbar());
-			rootVisualElement.Add(BuildTabs());
 
+			// Tab content areas
 			_browseRoot = BuildBrowseRoot();
 			_migrationsRoot = BuildMigrationsRoot();
 
@@ -116,34 +127,35 @@ namespace GameLovers.GameData.Editor
 			_providerMenu = new ToolbarMenu { text = "No providers" };
 			_providerMenu.style.minWidth = 280;
 
-			_searchField = new ToolbarSearchField();
-			_searchField.style.flexGrow = 1;
-			_searchField.RegisterValueChangedCallback(_ => RefreshTree());
+			// Tabs integrated into the global toolbar
+			_browseTab = new ToolbarToggle { text = "Browse", value = true };
+			_migrationsTab = new ToolbarToggle { text = "Migrations", value = false };
 
-			_validateAllButton = new Button(() =>
+			_browseTab.RegisterValueChangedCallback(evt =>
 			{
-				_validationFilter = ValidationFilter.All();
-				PopulateValidationResults(ValidateAllConfigs());
-			})
-			{
-				text = "Validate All"
-			};
+				if (evt.newValue)
+				{
+					_migrationsTab.SetValueWithoutNotify(false);
+					SetActiveTab(isBrowse: true);
+				}
+			});
 
-			_exportJsonButton = new Button(ExportJson)
+			_migrationsTab.RegisterValueChangedCallback(evt =>
 			{
-				text = "Export JSON"
-			};
+				if (evt.newValue)
+				{
+					_browseTab.SetValueWithoutNotify(false);
+					SetActiveTab(isBrowse: false);
+				}
+			});
 
-			_refreshButton = new Button(RefreshAll)
-			{
-				text = "Refresh"
-			};
+			// Spacer to push tabs to the left after provider menu
+			var spacer = new VisualElement { style = { flexGrow = 1 } };
 
 			_toolbar.Add(_providerMenu);
-			_toolbar.Add(_searchField);
-			_toolbar.Add(_validateAllButton);
-			_toolbar.Add(_exportJsonButton);
-			_toolbar.Add(_refreshButton);
+			_toolbar.Add(_browseTab);
+			_toolbar.Add(_migrationsTab);
+			_toolbar.Add(spacer);
 
 			return _toolbar;
 		}
@@ -168,9 +180,44 @@ namespace GameLovers.GameData.Editor
 					_selectedProviderId = -1;
 				}
 				RefreshAll();
+				_lastConfigTypeCount = -1;
+				_lastTotalConfigCount = -1;
+			}
+
+			// Detect data changes within the current provider and refresh tree if needed.
+			if (_provider != null)
+			{
+				var (typeCount, totalCount) = ComputeConfigCounts(_provider);
+				if (typeCount != _lastConfigTypeCount || totalCount != _lastTotalConfigCount)
+				{
+					_lastConfigTypeCount = typeCount;
+					_lastTotalConfigCount = totalCount;
+					RefreshTree();
+				}
 			}
 
 			UpdateProviderMenu();
+		}
+
+		/// <summary>
+		/// Computes the number of config types and total config entries in the provider.
+		/// Used for change detection to auto-refresh the Browse tab.
+		/// </summary>
+		private static (int typeCount, int totalCount) ComputeConfigCounts(IConfigsProvider provider)
+		{
+			var allConfigs = provider.GetAllConfigs();
+			var typeCount = allConfigs.Count;
+			var totalCount = 0;
+
+			foreach (var kv in allConfigs)
+			{
+				if (TryReadConfigs(kv.Value, out var entries))
+				{
+					totalCount += entries.Count;
+				}
+			}
+
+			return (typeCount, totalCount);
 		}
 
 		private string _lastMenuText;
@@ -214,50 +261,53 @@ namespace GameLovers.GameData.Editor
 			_providerMenu = newMenu;
 		}
 
-		private VisualElement BuildTabs()
+		private VisualElement BuildBrowseActionBar()
 		{
-			var tabs = new Toolbar();
+			_browseActionBar = new Toolbar();
 
-			_browseTab = new ToolbarToggle { text = "Browse", value = true };
-			_migrationsTab = new ToolbarToggle { text = "Migrations", value = false };
+			_searchField = new ToolbarSearchField();
+			_searchField.style.flexGrow = 1;
+			_searchField.RegisterValueChangedCallback(_ => RefreshTree());
 
-			_browseTab.RegisterValueChangedCallback(evt =>
+			_validateAllButton = new Button(() =>
 			{
-				if (evt.newValue)
-				{
-					_migrationsTab.SetValueWithoutNotify(false);
-					SetActiveTab(isBrowse: true);
-				}
-			});
-
-			_migrationsTab.RegisterValueChangedCallback(evt =>
+				_validationFilter = ValidationFilter.All();
+				PopulateValidationResults(ValidateAllConfigs());
+			})
 			{
-				if (evt.newValue)
-				{
-					_browseTab.SetValueWithoutNotify(false);
-					SetActiveTab(isBrowse: false);
-				}
-			});
+				text = "Validate All"
+			};
 
-			tabs.Add(_browseTab);
-			tabs.Add(_migrationsTab);
-			return tabs;
+			_exportAllButton = new Button(ExportAllJson)
+			{
+				text = "Export All"
+			};
+
+			_browseActionBar.Add(_searchField);
+			_browseActionBar.Add(_validateAllButton);
+			_browseActionBar.Add(_exportAllButton);
+
+			return _browseActionBar;
 		}
 
 		private VisualElement BuildBrowseRoot()
 		{
 			var root = new VisualElement { style = { flexGrow = 1 } };
 
+			// Browse action bar: Search + Validate All + Export All
+			root.Add(BuildBrowseActionBar());
+
 			// Horizontal split: tree view (left) + details panel (right)
 			var horizontalSplit = new TwoPaneSplitView(0, 260, TwoPaneSplitViewOrientation.Horizontal);
-			horizontalSplit.viewDataKey = "ConfigBrowser_HorizontalSplit";
+			horizontalSplit.viewDataKey = "ConfigBrowser_HorizontalSplit_v2"; // Changed key to reset persisted state
 			horizontalSplit.style.flexGrow = 1;
+			horizontalSplit.style.minHeight = 200;
 
 			_treeView = new TreeView
 			{
 				selectionType = SelectionType.Single,
 				showBorder = true,
-				style = { flexGrow = 1 },
+				style = { flexGrow = 1, minWidth = 200, minHeight = 100 },
 				makeItem = () => new Label { style = { unityTextAlign = TextAnchor.MiddleLeft, paddingLeft = 4 } },
 				bindItem = (element, index) =>
 				{
@@ -273,12 +323,15 @@ namespace GameLovers.GameData.Editor
 			};
 			_treeView.selectionChanged += OnTreeSelectionChanged;
 
-			horizontalSplit.Add(_treeView);
+			// Wrap TreeView in a container with minimum dimensions to prevent collapse
+			var treeContainer = new VisualElement { style = { flexGrow = 1, minWidth = 200 } };
+			treeContainer.Add(_treeView);
+			horizontalSplit.Add(treeContainer);
 			horizontalSplit.Add(BuildDetailsPanel());
 
 			// Vertical split: content (top) + validation panel (bottom)
 			var verticalSplit = new TwoPaneSplitView(1, 180, TwoPaneSplitViewOrientation.Vertical);
-			verticalSplit.viewDataKey = "ConfigBrowser_BrowseVerticalSplit";
+			verticalSplit.viewDataKey = "ConfigBrowser_BrowseVerticalSplit_v2"; // Changed key to reset persisted state
 			verticalSplit.style.flexGrow = 1;
 
 			verticalSplit.Add(horizontalSplit);
@@ -336,6 +389,16 @@ namespace GameLovers.GameData.Editor
 			_detailsHeader = new Label("No selection");
 			_detailsHeader.style.unityFontStyleAndWeight = FontStyle.Bold;
 
+			// Button container for per-config actions
+			var buttonContainer = new VisualElement
+			{
+				style =
+				{
+					flexDirection = FlexDirection.Row,
+					alignItems = Align.Center
+				}
+			};
+
 			_validateSelectedButton = new Button(() =>
 			{
 				if (!_selection.IsValid || _provider == null) return;
@@ -347,8 +410,17 @@ namespace GameLovers.GameData.Editor
 			};
 			_validateSelectedButton.SetEnabled(false);
 
+			_exportSelectedButton = new Button(ExportSelectedJson)
+			{
+				text = "Export"
+			};
+			_exportSelectedButton.SetEnabled(false);
+
+			buttonContainer.Add(_validateSelectedButton);
+			buttonContainer.Add(_exportSelectedButton);
+
 			header.Add(_detailsHeader);
-			header.Add(_validateSelectedButton);
+			header.Add(buttonContainer);
 
 			_jsonViewer = new JsonViewerElement();
 
@@ -414,6 +486,7 @@ namespace GameLovers.GameData.Editor
 			_selection = ConfigSelection.None();
 			_detailsHeader.text = "No selection";
 			_validateSelectedButton.SetEnabled(false);
+			_exportSelectedButton.SetEnabled(false);
 			_jsonViewer.SetJson(string.Empty);
 
 			RefreshTree();
@@ -515,6 +588,7 @@ namespace GameLovers.GameData.Editor
 				_selection = ConfigSelection.None();
 				_detailsHeader.text = "No selection";
 				_validateSelectedButton.SetEnabled(false);
+				_exportSelectedButton.SetEnabled(false);
 				_jsonViewer.SetJson(string.Empty);
 				return;
 			}
@@ -522,6 +596,7 @@ namespace GameLovers.GameData.Editor
 			_selection = new ConfigSelection(node.ConfigType, node.ConfigId, node.Value);
 			_detailsHeader.text = node.DisplayName;
 			_validateSelectedButton.SetEnabled(true);
+			_exportSelectedButton.SetEnabled(true);
 			_jsonViewer.SetJson(ToJson(node.Value));
 		}
 
@@ -611,7 +686,7 @@ namespace GameLovers.GameData.Editor
 			}
 		}
 
-		private void ExportJson()
+		private void ExportAllJson()
 		{
 			var provider = _provider;
 			if (provider == null)
@@ -621,7 +696,31 @@ namespace GameLovers.GameData.Editor
 			}
 
 			var json = ExportProviderToJson(provider);
-			var path = EditorUtility.SaveFilePanel("Export Configs JSON", Application.dataPath, "configs.json", "json");
+			var path = EditorUtility.SaveFilePanel("Export All Configs JSON", Application.dataPath, "configs.json", "json");
+			if (string.IsNullOrWhiteSpace(path))
+			{
+				return;
+			}
+
+			System.IO.File.WriteAllText(path, json);
+			EditorUtility.RevealInFinder(path);
+		}
+
+		private void ExportSelectedJson()
+		{
+			if (!_selection.IsValid)
+			{
+				EditorUtility.DisplayDialog("Export JSON", "No config selected.", "OK");
+				return;
+			}
+
+			var typeName = _selection.ConfigType.Name;
+			var configId = _selection.ConfigId;
+			var isSingleton = configId == SingleConfigId;
+			var fileName = isSingleton ? $"{typeName}.json" : $"{typeName}_{configId}.json";
+
+			var json = ToJson(_selection.Value);
+			var path = EditorUtility.SaveFilePanel("Export Config JSON", Application.dataPath, fileName, "json");
 			if (string.IsNullOrWhiteSpace(path))
 			{
 				return;

@@ -1,0 +1,22 @@
+{
+  "name": "GameLovers.GameData.Samples.Migration.Editor",
+  "rootNamespace": "GameLovers.GameData.Samples.Migration",
+  "references": [
+    "GameLovers.GameData",
+    "GameLovers.GameData.Editor",
+    "Migration"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

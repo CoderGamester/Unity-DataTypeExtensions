@@ -1340,7 +1340,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Click the button below or use the menu Window > GameLovers > Config Browser.
+  m_text: Click the button below or use the menu Tools > Game Data > Config Browser.
     This demo only runs in the Unity Editor.
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
