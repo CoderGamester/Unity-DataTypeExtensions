@@ -4,18 +4,7 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [1.0.1] - 2026-01-14
-
-**Changed**:
-- `IConfigBackendService` now uses `UniTask` instead of `System.Threading.Tasks.Task` for async operations (`GetRemoteVersion`, `FetchRemoteConfiguration`)
-- Added `com.cysharp.unitask` (2.5.10) as a package dependency
-
----
-
-## [1.0.0] - 2026-01-14
-
-**BREAKING**:
-- Package renamed from `com.gamelovers.dataextensions` to `com.gamelovers.gamedata`
+## [1.0.0] - 2026-01-21
 
 **New**:
 - Merged `com.gamelovers.configsprovider` into this package
@@ -36,6 +25,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - **BREAKING**: Package renamed from `com.gamelovers.dataextensions` to `com.gamelovers.gamedata`
 - Improved IL2CPP/AOT safety for `SerializableType<T>` with better type resolution
 - Optimized `EnumSelector` with static dictionary caching and O(1) lookups
+- `IConfigBackendService` now uses `UniTask` instead of `System.Threading.Tasks.Task` for async operations (`GetRemoteVersion`, `FetchRemoteConfiguration`)
+- Added `com.cysharp.unitask` (2.5.10) as a package dependency
 
 **Fix**:
 - Fixed `EnumSelector.SetSelection` to correctly handle enums with explicit/non-contiguous values

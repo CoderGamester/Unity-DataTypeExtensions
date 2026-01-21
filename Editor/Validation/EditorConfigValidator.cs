@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using GameLovers.GameData;
@@ -20,35 +19,16 @@ namespace GameLoversEditor.GameData
 		{
 			var result = new ValidationResult();
 			var allConfigs = provider.GetAllConfigs();
+			var validateMethod = typeof(EditorConfigValidator)
+				.GetMethod(nameof(Validate), BindingFlags.Public | BindingFlags.Static)
+				?? throw new InvalidOperationException($"Method {nameof(Validate)} not found");
 
 			foreach (var pair in allConfigs)
 			{
-				var type = pair.Key;
-				var configs = pair.Value;
-
-				// ConfigsProvider stores all configs (including singletons) as Dictionary<int, T>
-				// We need to use reflection to access the values since the generic type varies
-				var configsType = configs.GetType();
-				if (configsType.IsGenericType && configsType.GetGenericTypeDefinition() == typeof(Dictionary<,>))
-				{
-					var keyType = configsType.GetGenericArguments()[0];
-					if (keyType == typeof(int))
-					{
-						// Use reflection to iterate the dictionary
-						foreach (var item in configs)
-						{
-							// item is KeyValuePair<int, T>
-							var itemType = item.GetType();
-							var keyProp = itemType.GetProperty("Key");
-							var valueProp = itemType.GetProperty("Value");
-							
-							var key = (int)keyProp.GetValue(item);
-							var value = valueProp.GetValue(item);
-							
-							ValidateObject(value, type, key, result);
-						}
-					}
-				}
+				var genericMethod = validateMethod.MakeGenericMethod(pair.Key);
+				var typeResult = (ValidationResult)genericMethod.Invoke(null, new object[] { provider });
+				result.Errors.AddRange(typeResult.Errors);
+				result.ValidConfigs.AddRange(typeResult.ValidConfigs);
 			}
 
 			return result;
@@ -61,9 +41,21 @@ namespace GameLoversEditor.GameData
 		{
 			var result = new ValidationResult();
 			var configs = provider.GetConfigsDictionary<T>();
+			var typeName = typeof(T).Name;
+
 			foreach (var pair in configs)
 			{
+				var errorCountBefore = result.Errors.Count;
 				ValidateObject(pair.Value, typeof(T), pair.Key, result);
+
+				if (result.Errors.Count == errorCountBefore)
+				{
+					result.ValidConfigs.Add(new ValidConfig
+					{
+						ConfigType = typeName,
+						ConfigId = pair.Key
+					});
+				}
 			}
 			return result;
 		}

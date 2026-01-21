@@ -6,15 +6,17 @@
     "GameLovers.GameData.Editor",
     "Unity.TextMeshPro"
   ],
-  "includePlatforms": [
-    "Editor"
-  ],
+  "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
-  "overrideReferences": false,
-  "precompiledReferences": [],
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ],
   "autoReferenced": true,
-  "defineConstraints": [],
+  "defineConstraints": [
+    "UNITY_EDITOR"
+  ],
   "versionDefines": [],
   "noEngineReferences": false
 }
