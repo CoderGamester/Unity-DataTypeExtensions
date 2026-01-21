@@ -240,6 +240,11 @@ namespace GameLovers.GameData
 			{
 				_updateActions[i](List.Count - 1, default, data, ObservableUpdateType.Added);
 			}
+
+			for (var i = 0; i < _dependencyActions.Count; i++)
+			{
+				_dependencyActions[i].Invoke();
+			}
 		}
 
 		/// <inheritdoc />
@@ -278,6 +283,11 @@ namespace GameLovers.GameData
 				// Shift the index if an action was unsubscribed
 				i = AdjustIndex(i, action);
 			}
+
+			for (var i = 0; i < _dependencyActions.Count; i++)
+			{
+				_dependencyActions[i].Invoke();
+			}
 		}
 
 		/// <inheritdoc />
@@ -298,6 +308,14 @@ namespace GameLovers.GameData
 			}
 
 			List.Clear();
+
+			if (!_isBatching)
+			{
+				for (var i = 0; i < _dependencyActions.Count; i++)
+				{
+					_dependencyActions[i].Invoke();
+				}
+			}
 		}
 
 		/// <inheritdoc />

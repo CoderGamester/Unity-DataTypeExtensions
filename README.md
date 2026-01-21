@@ -88,6 +88,7 @@ Runtime/
 ├── ConfigServices/
 │   ├── ConfigsProvider.cs        # Type-safe config storage
 │   ├── ConfigsSerializer.cs      # JSON serialization for backend sync
+│   ├── ConfigTypesBinder.cs      # Security whitelist for safe deserialization
 │   ├── ConfigsScriptableObject.cs # ScriptableObject-based config containers
 │   ├── Interfaces/               # IConfigsProvider, IConfigsAdder, etc.
 │   └── Validation/               # Validation attributes (Editor validation lives in Editor/)
@@ -123,7 +124,7 @@ Editor/
 Samples~/
 ├── Reactive UI Demo/             # ObservableField + ComputedField with uGUI and UI Toolkit
 ├── Designer Workflow/            # ScriptableObject editing with ConfigsScriptableObject
-└── Validation and Migration/     # Editor-only validation and migration demo
+└── Migration/                  # Editor-only schema migration demo using Config Browser
 ```
 
 ### Key Components
@@ -132,6 +133,7 @@ Samples~/
 |-----------|----------------|
 | **ConfigsProvider** | Type-safe config storage with O(1) lookups and versioning |
 | **ConfigsSerializer** | JSON serialization for client/server config synchronization |
+| **ConfigTypesBinder** | Whitelist-based type binder for secure deserialization |
 | **ObservableField** | Reactive wrapper for single values with change callbacks |
 | **ObservableList** | Reactive wrapper for lists with add/remove/update callbacks |
 | **ObservableDictionary** | Reactive wrapper for dictionaries with key-based callbacks |
@@ -361,16 +363,36 @@ public struct ClientOnlyConfig
 
 **Security Modes:**
 
-The serializer supports two security modes for different trust scenarios:
+The serializer supports two security modes with built-in protections:
 
 ```csharp
-// TrustedOnly (default) - Supports polymorphism via TypeNameHandling.Auto
-// ⚠️ Never use with untrusted input
+// TrustedOnly (default) - Polymorphism via TypeNameHandling.Auto with whitelist protection
+// Uses ConfigTypesBinder to only allow explicitly registered config types
 var trusted = new ConfigsSerializer(SerializationSecurityMode.TrustedOnly);
 
-// Secure - Disables TypeNameHandling (reduces polymorphic type injection risk)
-// Note: the payload still contains type info via dictionary keys; validate before applying.
+// Secure - Disables TypeNameHandling entirely (serialize-only)
+// ⚠️ Cannot round-trip - use for sending configs TO untrusted targets
 var secure = new ConfigsSerializer(SerializationSecurityMode.Secure);
+
+// Optional: Set MaxDepth to prevent stack overflow from deeply nested JSON (default: 128)
+var customDepth = new ConfigsSerializer(SerializationSecurityMode.TrustedOnly, maxDepth: 64);
+```
+
+**Type Whitelisting (TrustedOnly mode):**
+
+Types are auto-registered during `Serialize()`. For deserialization without prior serialization, pre-register types:
+
+```csharp
+var serializer = new ConfigsSerializer(SerializationSecurityMode.TrustedOnly);
+
+// Pre-register specific types
+serializer.RegisterAllowedTypes(new[] { typeof(EnemyConfig), typeof(ItemConfig) });
+
+// Or register from an existing provider
+serializer.RegisterAllowedTypesFromProvider(existingProvider);
+
+// Now deserialize - only registered types are allowed
+serializer.Deserialize(json, newProvider);
 ```
 
 **Backend Sync Workflow:**
@@ -812,13 +834,13 @@ Demonstrates:
 - `EnumSelector<T>` with custom `PropertyDrawer`
 - Loading ScriptableObject configs into `ConfigsProvider` at runtime
 
-### Validation and Migration
+### Migration
 
 Demonstrates (Editor-only):
-- Validation attributes (`[Required]`, `[Range]`, `[MinLength]`)
-- `EditorConfigValidator` for config validation
-- `IConfigMigration` for schema migrations
+- Schema evolution (v1 → v2 → v3)
+- `IConfigMigration` for defining transformations
 - `MigrationRunner` for applying migrations
+- Config Browser workflow for previewing and executing migrations
 
 ---
 

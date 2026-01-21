@@ -32,31 +32,60 @@ namespace GameLovers.GameData
 	{
 		/// <summary>
 		/// Default mode. Uses TypeNameHandling.Auto for polymorphic serialization.
-		/// Should only be used for trusted data.
+		/// Uses a SerializationBinder to restrict allowed types for security.
+		/// Should only be used for trusted data sources.
 		/// </summary>
 		TrustedOnly,
 		/// <summary>
-		/// Secure mode. Uses TypeNameHandling.None and requires explicit type whitelisting.
-		/// Suitable for remote payloads.
+		/// Secure mode. Uses TypeNameHandling.None - no type metadata is emitted or processed.
+		/// Note: This mode cannot round-trip serialize/deserialize due to the internal
+		/// Dictionary&lt;Type, IEnumerable&gt; structure requiring type metadata.
+		/// Use for serializing configs TO untrusted targets (e.g., sending to clients).
 		/// </summary>
 		Secure
 	}
 
 	/// <summary>
-	/// Struct to represent what configs are serialized for the game.
-	/// This configs are to be shared between client & server.
+	/// Serializer for game configuration data with security protections.
+	/// 
+	/// Security features:
+	/// - TrustedOnly mode uses a SerializationBinder to whitelist allowed types
+	/// - Secure mode disables TypeNameHandling entirely (serialize-only)
+	/// - MaxDepth is set to prevent stack overflow attacks from deeply nested JSON
+	/// 
+	/// These configs are designed to be shared between client and server.
 	/// </summary>
 	public class ConfigsSerializer : IConfigsSerializer
 	{
+		/// <summary>
+		/// Maximum JSON nesting depth to prevent stack overflow attacks.
+		/// </summary>
+		public const int DefaultMaxDepth = 128;
+		
 		private readonly JsonSerializerSettings _settings;
 		private readonly SerializationSecurityMode _securityMode;
+		private ConfigTypesBinder _binder;
 
-		public ConfigsSerializer(SerializationSecurityMode mode = SerializationSecurityMode.TrustedOnly)
+		/// <summary>
+		/// Gets the current security mode.
+		/// </summary>
+		public SerializationSecurityMode SecurityMode => _securityMode;
+
+		/// <summary>
+		/// Creates a new ConfigsSerializer with the specified security mode.
+		/// </summary>
+		/// <param name="mode">The security mode to use. Defaults to TrustedOnly.</param>
+		/// <param name="maxDepth">Maximum JSON nesting depth. Defaults to 128.</param>
+		public ConfigsSerializer(SerializationSecurityMode mode = SerializationSecurityMode.TrustedOnly, int maxDepth = DefaultMaxDepth)
 		{
 			_securityMode = mode;
+			_binder = new ConfigTypesBinder(null);
+			
 			_settings = new JsonSerializerSettings()
 			{
 				TypeNameHandling = mode == SerializationSecurityMode.Secure ? TypeNameHandling.None : TypeNameHandling.Auto,
+				SerializationBinder = mode == SerializationSecurityMode.TrustedOnly ? _binder : null,
+				MaxDepth = maxDepth,
 				Converters = new List<JsonConverter>()
 				{
 					new StringEnumConverter(),
@@ -78,6 +107,7 @@ namespace GameLovers.GameData
 				Version = version,
 				Configs = new Dictionary<Type, IEnumerable>()
 			};
+			
 			foreach (var type in configs.Keys)
 			{
 				if (type.CustomAttributes.Any(c => c.AttributeType == typeof(IgnoreServerSerialization)))
@@ -91,8 +121,58 @@ namespace GameLovers.GameData
 				}
 
 				serializedConfig.Configs[type] = configs[type];
+				
+				// Auto-register types for the binder (TrustedOnly mode)
+				if (_securityMode == SerializationSecurityMode.TrustedOnly)
+				{
+					_binder.AddAllowedType(type);
+					var dictType = typeof(Dictionary<,>).MakeGenericType(typeof(int), type);
+					_binder.AddAllowedType(dictType);
+				}
 			}
+			
 			return JsonConvert.SerializeObject(serializedConfig, _settings);
+		}
+
+		/// <summary>
+		/// Registers additional types to be allowed during deserialization.
+		/// Only effective in TrustedOnly mode.
+		/// Call this before Deserialize if you need to allow types not present in the serialized data.
+		/// </summary>
+		/// <param name="types">The types to allow.</param>
+		public void RegisterAllowedTypes(IEnumerable<Type> types)
+		{
+			if (_securityMode != SerializationSecurityMode.TrustedOnly || types == null)
+			{
+				return;
+			}
+			
+			foreach (var type in types)
+			{
+				_binder.AddAllowedType(type);
+				var dictType = typeof(Dictionary<,>).MakeGenericType(typeof(int), type);
+				_binder.AddAllowedType(dictType);
+			}
+		}
+
+		/// <summary>
+		/// Registers types from an existing provider to be allowed during deserialization.
+		/// Only effective in TrustedOnly mode.
+		/// </summary>
+		/// <param name="provider">The provider containing the types to register.</param>
+		public void RegisterAllowedTypesFromProvider(IConfigsProvider provider)
+		{
+			if (_securityMode != SerializationSecurityMode.TrustedOnly || provider == null)
+			{
+				return;
+			}
+			
+			foreach (var type in provider.GetAllConfigs().Keys)
+			{
+				_binder.AddAllowedType(type);
+				var dictType = typeof(Dictionary<,>).MakeGenericType(typeof(int), type);
+				_binder.AddAllowedType(dictType);
+			}
 		}
 
 		/// <inheritdoc />
@@ -103,6 +183,7 @@ namespace GameLovers.GameData
 			return (T)cfg;
 		}
 		
+		/// <inheritdoc />
 		public void Deserialize(string serialized, IConfigsAdder cfg)
 		{
 			var configs = JsonConvert.DeserializeObject<SerializedConfigs>(serialized, _settings);
@@ -112,6 +193,5 @@ namespace GameLovers.GameData
 			}
 			cfg.UpdateTo(versionNumber, configs?.Configs);
 		}
-
 	}
 }

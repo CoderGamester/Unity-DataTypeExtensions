@@ -20,6 +20,7 @@ This file is for **agents/contributors**. User-facing usage lives in `README.md`
 
 ## 3. Key entry points (common navigation)
 - **Configs**: `Runtime/ConfigServices/ConfigsProvider.cs`, `Runtime/ConfigServices/ConfigsSerializer.cs`
+- **Security**: `Runtime/ConfigServices/ConfigTypesBinder.cs` (whitelist binder for safe deserialization)
 - **Interfaces**: `Runtime/ConfigServices/Interfaces/*` (notably `IConfigsProvider`, `IConfigsAdder`, `IConfigBackendService`)
 - **ScriptableObject containers**: `Runtime/ConfigServices/ConfigsScriptableObject.cs` (+ `Interfaces/IConfigsContainer.cs`)
 - **Editor windows**: `Editor/Windows/ConfigBrowserWindow.cs`, `Editor/Windows/ObservableDebugWindow.cs`
@@ -35,9 +36,12 @@ This file is for **agents/contributors**. User-facing usage lives in `README.md`
 - **Duplicate keys throw**: `AddSingletonConfig<T>()` / `AddConfigs<T>()` throw on duplicate ids.
 - **Missing container throws**: `GetConfigsDictionary<T>()` assumes `T` was added.
 - **Versioning is `ulong`**: `ConfigsSerializer.Deserialize` parses `Version` with `ulong.TryParse`; non-numeric strings become `0`.
-- **Security**:
-  - `ConfigsSerializer(TrustedOnly)` uses `TypeNameHandling.Auto` → **trusted payloads only**.
-  - `ConfigsSerializer(Secure)` disables `TypeNameHandling`, but payload still carries type info via dictionary keys; **still validate before applying**.
+- **Security** (see `ConfigsSerializer`, `ConfigTypesBinder`):
+  - `ConfigsSerializer(TrustedOnly)` uses `TypeNameHandling.Auto` with a `ConfigTypesBinder` whitelist.
+  - Types are auto-registered during `Serialize()` and can be pre-registered via `RegisterAllowedTypes()`.
+  - `ConfigTypesBinder` blocks any type not explicitly whitelisted, preventing type injection attacks.
+  - `ConfigsSerializer(Secure)` disables `TypeNameHandling` entirely (serialize-only, cannot round-trip).
+  - `MaxDepth` (default: 128) prevents stack overflow from deeply nested JSON.
 - **Editor-only registries**: `ConfigsProvider` registers in editor builds (used by Config Browser).
 - **ConfigsScriptableObject keys must be unique**: duplicate keys throw during `OnAfterDeserialize()`.
 - **ObservableDictionary update flags**: update flags change which subscribers are notified (key-only vs global vs both).
@@ -67,7 +71,7 @@ This file is for **agents/contributors**. User-facing usage lives in `README.md`
 ## 8. Samples (maintenance rule)
 - Package samples live in `Samples~/...`.
 - In the **host Unity project**, imported samples live under `Assets/Samples/...` and should be edited there when validating sample behavior.
-- Current sample set (see `package.json`): Reactive UI Demo (uGUI), Reactive UI Demo (UI Toolkit), Designer Workflow, Validation and Migration.
+- Current sample set (see `package.json`): Reactive UI Demo (uGUI), Reactive UI Demo (UI Toolkit), Designer Workflow, Migration.
 
 ## 9. Release checklist (docs + versioning)
 - Bump `package.json` version

@@ -30,9 +30,14 @@ namespace GameLovers.GameData
 		/// <inheritdoc />
 		public bool TryGetConfig<T>(out T config)
 		{
-			var dictionary = GetConfigsDictionary<T>();
+			config = default;
 
-			return dictionary.TryGetValue(_singleConfigId, out config);
+			if (!_configs.TryGetValue(typeof(T), out var enumerable))
+			{
+				return false;
+			}
+
+			return enumerable is IReadOnlyDictionary<int, T> dictionary && dictionary.TryGetValue(_singleConfigId, out config);
 		}
 
 		/// <inheritdoc />
@@ -86,6 +91,16 @@ namespace GameLovers.GameData
 		/// <inheritdoc />
 		public void AddConfigs<T>(Func<T, int> referenceIdResolver, IList<T> configList)
 		{
+			if (referenceIdResolver == null)
+			{
+				throw new ArgumentNullException(nameof(referenceIdResolver));
+			}
+
+			if (configList == null)
+			{
+				throw new ArgumentNullException(nameof(configList));
+			}
+
 			var dictionary = new Dictionary<int, T>(configList.Count);
 
 			for (int i = 0; i < configList.Count; i++)

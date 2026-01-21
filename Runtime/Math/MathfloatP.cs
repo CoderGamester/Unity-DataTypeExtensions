@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace GameLovers.GameData
 {
@@ -204,6 +204,34 @@ namespace GameLovers.GameData
 		{
 			floatP delta = DeltaAngle(a, b);
 			return a + delta * Clamp01(t);
+		}
+
+		/// <summary>
+		/// Same as MoveTowards but makes sure the values interpolate correctly when they wrap around 360 degrees.
+		/// </summary>
+		public static floatP MoveTowardsAngle(floatP current, floatP target, floatP maxDelta)
+		{
+			floatP delta = DeltaAngle(current, target);
+			if (-maxDelta < delta && delta < maxDelta)
+			{
+				return target;
+			}
+			target = current + delta;
+			return MoveTowards(current, target, maxDelta);
+		}
+
+		/// <summary>
+		/// Compares two floating point values and returns true if they are similar.
+		/// </summary>
+		public static bool Approximately(floatP a, floatP b)
+		{
+			// Similar to Unity's implementation:
+			// Returns true if the difference between a and b is less than the larger of
+			// 1E-06 * max(|a|, |b|) or Epsilon * 8
+			floatP diff = Abs(b - a);
+			floatP maxMagnitude = Max(Abs(a), Abs(b));
+			floatP tolerance = Max((floatP)1E-06f * maxMagnitude, floatP.Epsilon * (floatP)8f);
+			return diff < tolerance;
 		}
 
 		/// <summary>

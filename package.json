@@ -30,9 +30,10 @@
       "path": "Samples~/Designer Workflow"
     },
     {
-      "displayName": "Validation and Migration",
-      "description": "Editor-only demo for validation attributes (EditorConfigValidator) and schema migrations (MigrationRunner)",
-      "path": "Samples~/Validation and Migration"
+      "displayName": "Migration",
+      "description": "Editor-only demo for schema migrations using Config Browser and MigrationRunner",
+      "path": "Samples~/Migration"
     }
+
   ]
 }

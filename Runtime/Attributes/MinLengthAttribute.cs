@@ -16,6 +16,11 @@ namespace GameLovers.GameData
 		{
 			if (value == null)
 			{
+				if (_minLength > 0)
+				{
+					message = $"Value is null but minimum length {_minLength} is required";
+					return false;
+				}
 				message = null;
 				return true;
 			}

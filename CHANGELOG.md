@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 **New**:
 - Merged `com.gamelovers.configsprovider` into this package
+- **Security**: Added `ConfigTypesBinder` to whitelist allowed types during deserialization, preventing type injection attacks
 - Added `ConfigsProvider` for type-safe config storage and versioning
 - Added `ConfigsSerializer` for JSON serialization with backend sync support
 - Added `ConfigsScriptableObject` for ScriptableObject-based config containers

@@ -2,7 +2,9 @@
     "name": "GameLovers.GameData.Editor.Tests",
     "rootNamespace": "",
     "references": [
-        "GameLovers.GameData"
+        "GameLovers.GameData",
+        "GameLovers.GameData.Editor",
+        "Unity.PerformanceTesting"
     ],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],

@@ -462,8 +462,14 @@ namespace GameLovers.GameData
 						return PositiveInfinity;
 					}
 
-					// +-Infinity / Infinity
-					return NaN;
+					if (f2.IsInfinity())
+					{
+						// Infinity / +-Infinity
+						return NaN;
+					}
+
+					// Infinity / finite
+					return (int)f2.RawValue >= 0 ? PositiveInfinity : NegativeInfinity;
 				}
 				else if (f1.RawValue == RawNegativeInfinity)
 				{
@@ -473,8 +479,14 @@ namespace GameLovers.GameData
 						return NegativeInfinity;
 					}
 
-					// -Infinity / +-Infinity
-					return NaN;
+					if (f2.IsInfinity())
+					{
+						// -Infinity / +-Infinity
+						return NaN;
+					}
+
+					// -Infinity / finite
+					return (int)f2.RawValue >= 0 ? NegativeInfinity : PositiveInfinity;
 				}
 				else
 				{

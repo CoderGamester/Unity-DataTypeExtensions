@@ -98,6 +98,11 @@ namespace GameLovers.GameData
 		/// <inheritdoc />
 		public void Observe(Action<T, T> onUpdate)
 		{
+			// Ensure dependencies are tracked before adding observer
+			if (_isDirty)
+			{
+				Recompute();
+			}
 			_updateActions.Add(onUpdate);
 		}
 
