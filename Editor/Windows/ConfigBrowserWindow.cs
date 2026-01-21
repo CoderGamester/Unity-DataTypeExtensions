@@ -86,12 +86,29 @@ namespace GameLovers.GameData.Editor
 
 		private void OnPlayModeStateChanged(PlayModeStateChange state)
 		{
+			// Guard: UI elements may not exist yet if CreateGUI() hasn't run
+			var isGuiInitialized = _detailsHeader != null;
+
 			// Clear selection when entering or exiting play mode to avoid stale references
 			if (state == PlayModeStateChange.ExitingEditMode || state == PlayModeStateChange.ExitingPlayMode)
 			{
 				_provider = null;
 				_selectedProviderId = -1;
 				_snapshots.Clear();
+
+				if (isGuiInitialized)
+				{
+					RefreshAll();
+				}
+			}
+			else if (state == PlayModeStateChange.EnteredPlayMode || state == PlayModeStateChange.EnteredEditMode)
+			{
+				if (isGuiInitialized)
+				{
+					// Refresh to pick up newly registered providers or clear stale state
+					RefreshProviderList();
+					RefreshAll();
+				}
 			}
 		}
 
@@ -241,6 +258,19 @@ namespace GameLovers.GameData.Editor
 
 			var newMenu = new ToolbarMenu { text = menuText };
 			newMenu.style.minWidth = 280;
+
+			// Add "None" option to clear the selection
+			newMenu.menu.AppendAction("None", a =>
+			{
+				_provider = null;
+				_selectedProviderId = -1;
+				RefreshAll();
+			}, a => _provider == null ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
+
+			if (_snapshots.Count > 0)
+			{
+				newMenu.menu.AppendSeparator();
+			}
 
 			foreach (var snap in _snapshots)
 			{
@@ -521,7 +551,7 @@ namespace GameLovers.GameData.Editor
 			{
 				return new List<TreeViewItemData<ConfigNode>>
 				{
-					new TreeViewItemData<ConfigNode>(id++, ConfigNode.Header("No providers available. Enter Play Mode to create a ConfigsProvider."))
+					new TreeViewItemData<ConfigNode>(id++, ConfigNode.Header("No providers available.\nEnter Play Mode to create a ConfigsProvider."))
 				};
 			}
 
@@ -610,7 +640,7 @@ namespace GameLovers.GameData.Editor
 
 			if (_provider == null)
 			{
-				_validationList.Add(new HelpBox("No provider selected. Enter Play Mode and create a ConfigsProvider.", HelpBoxMessageType.Info));
+				_validationList.Add(new HelpBox("No provider selected.\nEnter Play Mode and create a ConfigsProvider.", HelpBoxMessageType.Info));
 				return;
 			}
 
@@ -691,7 +721,7 @@ namespace GameLovers.GameData.Editor
 			var provider = _provider;
 			if (provider == null)
 			{
-				EditorUtility.DisplayDialog("Export JSON", "No provider selected. Enter Play Mode and create a ConfigsProvider.", "OK");
+				EditorUtility.DisplayDialog("Export JSON", "No provider selected.\nEnter Play Mode and create a ConfigsProvider.", "OK");
 				return;
 			}
 

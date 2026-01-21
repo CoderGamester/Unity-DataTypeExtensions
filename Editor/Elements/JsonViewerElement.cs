@@ -38,7 +38,7 @@ namespace GameLovers.GameData.Editor
 
 			_label = new Label();
 			_label.style.unityFontStyleAndWeight = FontStyle.Normal;
-			_label.style.whiteSpace = WhiteSpace.NoWrap;
+			_label.style.whiteSpace = WhiteSpace.Pre;
 			_label.style.paddingLeft = 4;
 			_label.style.paddingRight = 4;
 			_label.style.paddingTop = 2;
