@@ -2,9 +2,9 @@
 
 [![Unity Version](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity3d.com/get-unity/download)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.1-green.svg)](CHANGELOG.md)
 
-> **Quick Links**: [Installation](#installation) | [Quick Start](#quick-start) | [Features](#features-documentation) | [Editor Tools](#editor-tools)| [Contributing](#contributing)
+> **Quick Links**: [Installation](#installation) | [Features](#features-documentation) | [Editor Tools](#editor-tools) | [Contributing](#contributing)
 
 ## Why Use This Package?
 
@@ -81,53 +81,7 @@ Add the following line to your project's `Packages/manifest.json`:
 
 ---
 
-## Package Structure
-
-```
-Runtime/
-├── ConfigServices/
-│   ├── ConfigsProvider.cs        # Type-safe config storage
-│   ├── ConfigsSerializer.cs      # JSON serialization for backend sync
-│   ├── ConfigTypesBinder.cs      # Security whitelist for safe deserialization
-│   ├── ConfigsScriptableObject.cs # ScriptableObject-based config containers
-│   ├── Interfaces/               # IConfigsProvider, IConfigsAdder, etc.
-│   └── Validation/               # Validation attributes (Editor validation lives in Editor/)
-├── Observables/
-│   ├── ObservableField.cs        # Reactive field wrapper
-│   ├── ObservableList.cs         # Reactive list wrapper
-│   ├── ObservableDictionary.cs   # Reactive dictionary wrapper
-│   └── ComputedField.cs          # Auto-updating computed values
-├── Math/
-│   ├── floatP.cs                 # Deterministic floating-point type
-│   └── MathfloatP.cs             # Math library for floatP
-├── Serialization/
-│   ├── UnitySerializedDictionary.cs # Dictionary serialization for Inspector
-│   └── SerializableType.cs       # Type serialization for Inspector
-└── Utilities/
-    └── EnumSelector.cs           # Enum dropdown stored by name
-
-Editor/
-├── EnumSelectorPropertyDrawer.cs # Custom drawer for EnumSelector
-├── ReadOnlyPropertyDrawer.cs     # ReadOnly attribute drawer
-├── Inspectors/
-│   └── ConfigsScriptableObjectInspector.cs # UI Toolkit inspector for ConfigsScriptableObject<,>
-├── Windows/
-│   ├── ConfigBrowserWindow.cs     # UI Toolkit window: browse/validate/migrate configs
-│   └── ObservableDebugWindow.cs   # UI Toolkit window: inspect observables + dependencies
-├── Elements/
-│   ├── JsonViewerElement.cs       # Shared JSON viewer element
-│   ├── ValidationErrorElement.cs  # Shared validation error row element
-│   ├── MigrationPanelElement.cs   # Config Browser migrations panel
-│   └── DependencyGraphElement.cs  # Observable Debugger dependency view
-└── Validation/                   # EditorConfigValidator + ValidationResult
-
-Samples~/
-├── Reactive UI Demo/             # ObservableField + ComputedField with uGUI and UI Toolkit
-├── Designer Workflow/            # ScriptableObject editing with ConfigsScriptableObject
-└── Migration/                  # Editor-only schema migration demo using Config Browser
-```
-
-### Key Components
+## Key Components
 
 | Component | Responsibility |
 |-----------|----------------|
@@ -175,102 +129,6 @@ Samples~/
 - **Where**: Inspector UI for `ConfigsScriptableObject<,>` derived assets.
 - **Purpose**: Inline entry status (duplicate keys / attribute-based validation) and a quick **Validate All** action.
 
-## Quick Start
-
-### 1. Define Your Configs
-
-```csharp
-using System;
-using GameLovers.GameData;
-
-[Serializable]
-public struct EnemyConfig
-{
-    public int Id;
-    public string Name;
-    public float Health;
-    public float Damage;
-}
-```
-
-### 2. Initialize the Provider
-
-```csharp
-using GameLovers.GameData;
-using System.Collections.Generic;
-
-public class GameBootstrap
-{
-    private ConfigsProvider _configsProvider;
-    
-    public void Initialize()
-    {
-        _configsProvider = new ConfigsProvider();
-        
-        // Add configs with ID resolver
-        var enemies = new List<EnemyConfig>
-        {
-            new EnemyConfig { Id = 1, Name = "Goblin", Health = 50, Damage = 10 },
-            new EnemyConfig { Id = 2, Name = "Orc", Health = 100, Damage = 25 }
-        };
-        
-        _configsProvider.AddConfigs(enemy => enemy.Id, enemies);
-    }
-}
-```
-
-### 3. Access Configs at Runtime
-
-```csharp
-// Get by ID (O(1) lookup)
-var goblin = _configsProvider.GetConfig<EnemyConfig>(1);
-
-// Get all as list
-var allEnemies = _configsProvider.GetConfigsList<EnemyConfig>();
-
-// Get as dictionary
-var enemyDict = _configsProvider.GetConfigsDictionary<EnemyConfig>();
-
-// Safe lookup
-if (_configsProvider.TryGetConfig<EnemyConfig>(3, out var enemy))
-{
-    Debug.Log($"Found: {enemy.Name}");
-}
-```
-
-### 4. Use Observable State
-
-```csharp
-using GameLovers.GameData;
-
-public class PlayerController
-{
-    private readonly ObservableField<int> _health;
-    private readonly ObservableList<string> _inventory;
-    
-    public PlayerController()
-    {
-        _health = new ObservableField<int>(100);
-        _inventory = new ObservableList<string>(new List<string>());
-        
-        // Subscribe to changes (receives previous and current value)
-        _health.Observe((prev, curr) => Debug.Log($"HP: {prev} → {curr}"));
-        
-        // Subscribe and invoke immediately
-        _health.InvokeObserve((prev, curr) => UpdateHealthUI(curr));
-    }
-    
-    public void TakeDamage(int damage)
-    {
-        _health.Value -= damage; // Triggers all observers
-    }
-    
-    private void UpdateHealthUI(int health) { /* ... */ }
-}
-```
-
----
-
 ## Features Documentation
 
 ### ConfigsProvider
@@ -278,10 +136,9 @@ public class PlayerController
 Type-safe, high-performance configuration storage with O(1) lookups.
 
 **Key Points:**
-- Stores configs in pre-built dictionaries for instant access
-- Supports versioning for backend sync scenarios
-- Singleton configs supported via `AddSingletonConfig<T>()`
-- Zero-allocation enumeration for hot paths
+- Pre-built dictionaries for instant access; versioning for backend sync
+- Singleton configs via `AddSingletonConfig<T>()`
+- Zero-allocation enumeration via `EnumerateConfigs<T>()`
 
 ```csharp
 var provider = new ConfigsProvider();
@@ -331,96 +188,24 @@ var bosses = provider.EnumerateConfigs<EnemyConfig>()
 JSON serialization for client/server config synchronization.
 
 **Key Points:**
-- Uses `Newtonsoft.Json` for reliable serialization
-- Supports `[IgnoreServerSerialization]` attribute to exclude configs
-- Automatically handles enum serialization as strings
-- Two security modes for different trust levels (see `SerializationSecurityMode`)
-- Versioning is **numeric** (`ulong`) — `Deserialize` parses the serialized `Version` with `ulong.TryParse`
+- Uses `Newtonsoft.Json` with enum-as-string handling
+- `[IgnoreServerSerialization]` attribute to exclude client-only configs
+- Versioning is **numeric** (`ulong`) — parsed with `ulong.TryParse`
+- Two security modes: **TrustedOnly** (default, whitelist via `ConfigTypesBinder`) and **Secure** (no `TypeNameHandling`, serialize-only)
+- Optional `MaxDepth` (default: 128) prevents stack overflow from deeply nested JSON
 
 ```csharp
-var serializer = new ConfigsSerializer();
+var serializer = new ConfigsSerializer(); // TrustedOnly by default
 
-// Serialize for backend
+// Serialize / Deserialize
 string json = serializer.Serialize(configsProvider, "123"); // numeric version string
-
-// Deserialize from backend
 var newProvider = serializer.Deserialize<ConfigsProvider>(json);
 
-// Or deserialize into existing provider
-serializer.Deserialize(json, existingProvider);
-```
-
-**Exclude configs from serialization:**
-
-```csharp
-[IgnoreServerSerialization]
-[Serializable]
-public struct ClientOnlyConfig
-{
-    public string LocalSetting;
-}
-```
-
-**Security Modes:**
-
-The serializer supports two security modes with built-in protections:
-
-```csharp
-// TrustedOnly (default) - Polymorphism via TypeNameHandling.Auto with whitelist protection
-// Uses ConfigTypesBinder to only allow explicitly registered config types
-var trusted = new ConfigsSerializer(SerializationSecurityMode.TrustedOnly);
-
-// Secure - Disables TypeNameHandling entirely (serialize-only)
-// ⚠️ Cannot round-trip - use for sending configs TO untrusted targets
-var secure = new ConfigsSerializer(SerializationSecurityMode.Secure);
-
-// Optional: Set MaxDepth to prevent stack overflow from deeply nested JSON (default: 128)
-var customDepth = new ConfigsSerializer(SerializationSecurityMode.TrustedOnly, maxDepth: 64);
-```
-
-**Type Whitelisting (TrustedOnly mode):**
-
-Types are auto-registered during `Serialize()`. For deserialization without prior serialization, pre-register types:
-
-```csharp
-var serializer = new ConfigsSerializer(SerializationSecurityMode.TrustedOnly);
-
-// Pre-register specific types
+// Pre-register types for deserialization without prior serialization
 serializer.RegisterAllowedTypes(new[] { typeof(EnemyConfig), typeof(ItemConfig) });
-
-// Or register from an existing provider
-serializer.RegisterAllowedTypesFromProvider(existingProvider);
-
-// Now deserialize - only registered types are allowed
-serializer.Deserialize(json, newProvider);
 ```
 
-**Backend Sync Workflow:**
-
-Typical workflow is to implement `IConfigBackendService` (UniTask-based) and keep versioning numeric (`ulong`):
-
-```csharp
-using Cysharp.Threading.Tasks;
-using GameLovers.GameData;
-
-public static class ConfigSync
-{
-    public static async UniTask SyncIfNeeded(IConfigBackendService backend, ConfigsProvider provider)
-    {
-        ulong remoteVersion = await backend.GetRemoteVersion();
-        if (remoteVersion <= provider.Version)
-        {
-            return;
-        }
-
-        // Your backend service can fetch + deserialize using ConfigsSerializer internally.
-        IConfigsProvider remoteProvider = await backend.FetchRemoteConfiguration(remoteVersion);
-
-        // Apply atomically (updates configs + version).
-        provider.UpdateTo(remoteVersion, remoteProvider.GetAllConfigs());
-    }
-}
-```
+**Backend Sync:** Implement `IConfigBackendService` (UniTask-based) to fetch remote configs and apply atomically via `provider.UpdateTo(remoteVersion, remoteProvider.GetAllConfigs())`.
 
 ---
 
@@ -519,6 +304,11 @@ var totalHealth = new ComputedField<int>(() => baseHealth.Value + bonusHealth.Va
 // Subscribe to computed value changes
 totalHealth.Observe((prev, curr) => Debug.Log($"Total HP: {prev} → {curr}"));
 
+// Fluent API: Select, CombineWith, Combine
+var displayHealth = baseHealth.Select(h => $"HP: {h}");
+var combined1 = baseHealth.CombineWith(bonusHealth, (a, b) => a + b);
+var combined2 = ObservableField.Combine(baseHealth, bonusHealth, (a, b) => a + b);
+
 // Changing any dependency automatically updates the computed field
 baseHealth.Value = 120;  // Triggers: "Total HP: 125 → 145"
 bonusHealth.Value = 50;  // Triggers: "Total HP: 145 → 170"
@@ -531,38 +321,10 @@ totalHealth.Dispose();
 ```
 
 **Key Points:**
-- Dependencies are tracked automatically during computation
-- Lazy evaluation: only recomputes when accessed after a dependency change
+- Dependencies tracked automatically; lazy evaluation (recomputes only when accessed after change)
 - Supports chaining: computed fields can depend on other computed fields
+- Fluent API: `Select()` (transform), `CombineWith()` (merge 2–3 fields), `ObservableField.Combine()` (static factory)
 - Call `Dispose()` to unsubscribe from all dependencies
-
-##### Fluent API
-
-For more ergonomic computed field creation, use the extension methods or static factory:
-
-```csharp
-using GameLovers.GameData;
-
-var baseHealth = new ObservableField<int>(100);
-var bonusHealth = new ObservableField<int>(25);
-var multiplier = new ObservableField<float>(1.5f);
-
-// Select: Transform a single field
-var displayHealth = baseHealth.Select(h => $"HP: {h}");
-
-// CombineWith: Combine two fields
-var totalHealth = baseHealth.CombineWith(bonusHealth, (a, b) => a + b);
-
-// CombineWith: Combine three fields  
-var finalHealth = baseHealth.CombineWith(bonusHealth, multiplier, 
-    (a, b, m) => (int)((a + b) * m));
-
-// Static factory: Combine multiple fields explicitly
-var combined = ObservableField.Combine(baseHealth, bonusHealth, (a, b) => a + b);
-
-// All computed fields update automatically when any source changes
-baseHealth.Value = 120;  // All computed fields recalculate
-```
 
 #### Batched Updates
 
@@ -607,95 +369,22 @@ public void ApplyDamage(int damage, int manaCost)
 Deterministic floating-point type for cross-platform reproducible calculations.
 
 **Key Points:**
-- IEEE 754 binary32 compatible representation
-- Bit-exact results across all platforms (including WebGL)
+- IEEE 754 binary32 compatible — bit-exact results across all platforms (including WebGL)
 - Essential for multiplayer synchronization and replays
 - Full operator support (+, -, *, /, %, comparisons)
 
 ```csharp
-using GameLovers.GameData;
+floatP a = 3.14f;              // Implicit conversion from float
+floatP sum = a + 2.0f;         // Arithmetic operations
+float result = (float)sum;     // Convert back to float
+int integer = (int)a;          // Convert to int
 
-// Implicit conversion from float
-floatP a = 3.14f;
-floatP b = 2.0f;
-
-// Arithmetic operations
-floatP sum = a + b;
-floatP product = a * b;
-floatP quotient = a / b;
-
-// Comparisons
-bool equal = a == b;
-bool greater = a > b;
-
-// Conversion back to float
-float result = (float)sum;
-
-// Conversion to int
-int integer = (int)a;
-
-// Raw value for serialization
+// Raw value for deterministic serialization (compare RawValue, not float)
 uint raw = a.RawValue;
 floatP restored = floatP.FromRaw(raw);
 ```
 
-**Verifying Cross-Platform Determinism:**
-
-To verify determinism across platforms, compare `RawValue` (the IEEE 754 bit representation) rather than float values:
-
-```csharp
-// On platform A: compute and log raw value
-floatP result = MathfloatP.Sin(angle) * speed;
-Debug.Log($"Result raw: {result.RawValue}");  // e.g., 1082130432
-
-// On platform B: same computation should produce identical raw value
-// Compare uint values, not float approximations
-Assert.AreEqual(expectedRawValue, result.RawValue);
-
-// For replays/networking: serialize RawValue, not float
-public void SerializePosition(BinaryWriter writer, floatP x, floatP y)
-{
-    writer.Write(x.RawValue);
-    writer.Write(y.RawValue);
-}
-
-public (floatP x, floatP y) DeserializePosition(BinaryReader reader)
-{
-    return (floatP.FromRaw(reader.ReadUInt32()), 
-            floatP.FromRaw(reader.ReadUInt32()));
-}
-```
-
-**MathfloatP Functions:**
-
-```csharp
-using GameLovers.GameData;
-
-floatP x = 1.5f;
-
-// Basic math
-floatP abs = MathfloatP.Abs(x);
-floatP max = MathfloatP.Max(x, 2.0f);
-floatP min = MathfloatP.Min(x, 0.5f);
-
-// Trigonometry
-floatP sin = MathfloatP.Sin(x);
-floatP cos = MathfloatP.Cos(x);
-floatP tan = MathfloatP.Tan(x);
-floatP atan2 = MathfloatP.Atan2(y, x);
-
-// Power and roots
-floatP sqrt = MathfloatP.Sqrt(x);
-floatP pow = MathfloatP.Pow(x, 2);
-floatP exp = MathfloatP.Exp(x);
-floatP log = MathfloatP.Log(x);
-
-// Rounding
-floatP floor = MathfloatP.Floor(x);
-floatP ceil = MathfloatP.Ceil(x);
-floatP round = MathfloatP.Round(x);
-floatP clamp = MathfloatP.Clamp(x, 0, 1);
-```
+**MathfloatP** provides deterministic equivalents: `Abs`, `Min`, `Max`, `Sin`, `Cos`, `Tan`, `Atan2`, `Sqrt`, `Pow`, `Exp`, `Log`, `Floor`, `Ceil`, `Round`, `Clamp`.
 
 ---
 
@@ -846,31 +535,9 @@ Demonstrates (Editor-only):
 
 ## Contributing
 
-We welcome contributions! Here's how you can help:
+We welcome contributions! Report bugs or request features via [GitHub Issues](https://github.com/CoderGamester/com.gamelovers.gamedata/issues). Include Unity version, package version, and reproduction steps.
 
-### Reporting Issues
-
-- Use the [GitHub Issues](https://github.com/CoderGamester/com.gamelovers.gamedata/issues) page
-- Include Unity version, package version, and reproduction steps
-- Attach relevant code samples, error logs, or screenshots
-
-### Development Setup
-
-1. Fork the repository on GitHub
-2. Clone your fork: `git clone https://github.com/yourusername/com.gamelovers.gamedata.git`
-3. Create a feature branch: `git checkout -b feature/amazing-feature`
-4. Make your changes with tests
-5. Commit: `git commit -m 'Add amazing feature'`
-6. Push: `git push origin feature/amazing-feature`
-7. Create a Pull Request
-
-### Code Guidelines
-
-- Follow C# 9.0 syntax with explicit namespaces (no global usings)
-- Add XML documentation to all public APIs
-- Include unit tests for new features
-- Runtime code must not reference `UnityEditor`
-- Update CHANGELOG.md for notable changes
+**Code Guidelines:** C# 9.0 with explicit namespaces, XML docs on public APIs, unit tests for new features, runtime code must not reference `UnityEditor`. Update [CHANGELOG.md](CHANGELOG.md) for notable changes.
 
 ---
 
